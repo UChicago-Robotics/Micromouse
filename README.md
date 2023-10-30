@@ -16,11 +16,11 @@ For use with [mackorone/mms](https://github.com/mackorone/mms), a Micromouse sim
 
 Windows:
 
-![](https://github.com/mackorone/mms-python/blob/master/images/config-windows.png)
+![figure](images/config-windows.png)
 
 Linux (Ubuntu):
 
-![](https://github.com/mackorone/mms-python/blob/master/images/config-linux.png)
+![figure](images/config-linux.png)
 
 ## Notes
 
