@@ -85,6 +85,10 @@ def turnRight45():
 def turnLeft45():
     command(args=["turnLeft45"], return_type=str)
 
+def turn180():
+    turnLeft()
+    turnLeft()
+
 def setWall(x, y, direction):
     command(args=["setWall", x, y, direction])
 
