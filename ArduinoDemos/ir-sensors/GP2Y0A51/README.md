@@ -1,0 +1,1 @@
+## Code to get data from the [GP2Y0A51SK0F](https://www.pololu.com/product/2450) IR transmitter / receiver. Wiring is pretty easy, so it's not included here.
