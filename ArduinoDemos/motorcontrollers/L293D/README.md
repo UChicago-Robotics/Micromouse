@@ -2,3 +2,6 @@
 
 ### Wiring example:
 ![figure](ArduinoDemos/motorcontrollers/L293D/images/motorcontroller.png)
+
+## Encoder Datasheets:
+[Link](https://www.pololu.com/product/4760)
