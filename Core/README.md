@@ -6,9 +6,7 @@ Instead of using the Arduino IDE, we're using [PlatformIO](https://docs.platform
 
 Note that there's both a CLI and a VSCode extension for PlatformIO. I reccomend installing both, as the CLI is useful for debugging while the VSCode entension has a nice GUI and allows your IDE to view builtin Arduino libraries.
 
-To install the VSCode extension, see [this guide](https://platformio.org/install/ide?install=vscode)
-To install the CLI, see [this guide](https://docs.platformio.org/en/latest/core/installation/methods/installer-script.html). If you have homebrew on MacOS, you can install it with 
-
+To install the VSCode extension, see [this guide](https://platformio.org/install/ide?install=vscode). To install the CLI, see [this guide](https://docs.platformio.org/en/latest/core/installation/methods/installer-script.html). If you have homebrew on MacOS, you can install it with 
 ```bash
 brew install platformio
 ```
