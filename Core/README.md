@@ -15,7 +15,7 @@ brew install platformio
 To test if the code will compile (note that this does NOT require that the Arduino is connected ):
 
 ```bash
-pio run --environment nano_every
+pio run --environment nano33ble
 ```
 
 To check that your board is connected to your computer:
@@ -27,10 +27,10 @@ pio device monitor
 To upload code:
 
 ```bash
-pio run --target upload --environment nano_every
+pio run --target upload --environment nano33ble
 ```
 
 To read the serial output of the Arduino (note that this will only display output ***after*** code is running on the Arduino):
 ```bash
-platformio device monitor --environment nano_every
+platformio device monitor --environment nano33ble
 ```
