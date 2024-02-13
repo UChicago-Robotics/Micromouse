@@ -9,11 +9,17 @@
 #define LED_BUILTIN 13
 #endif
 
-
-
 void setup()
 {
-  pinMode(LED_BUILTIN, OUTPUT);
+  std::vector<int> input_pins = {A0, A1, A2, A3};
+  std::vector<int> output_pins = {D9, D10, D11, D12};
+
+  for (auto i : input_pins)
+    pinMode(i, INPUT);
+
+  for (auto i : output_pins)
+    pinMode(i, OUTPUT);
+
   Serial.begin(115200);
 }
 
