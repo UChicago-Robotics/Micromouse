@@ -13,8 +13,4 @@ class Gyro {
 
 };
 
-class Encoder {
-
-};
-
 #endif

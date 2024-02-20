@@ -1,48 +1,77 @@
-/*
- * This should be enough to test that everything is working properly. Make sure to check that the builtin
- * light blinks on the arduino and the the serial output is working. See the README for how to do this.
- */
+#include <Arduino_LSM9DS1.h>
+#include <Encoder.h>
+#include "pins_arduino.h"
 #include "Arduino.h"
-#include "const.h"
-#include "sensor.h"
-#ifndef LED_BUILTIN
-#define LED_BUILTIN 13
-#endif
+
+// Change these two numbers to the pins connected to your encoder
+// or shift register circuit which emulates a quadrature encoder
+//  case 1: both pins are interrupts
+//  case 2: only first pin used as interrupt
+Encoder myEnc(5, 6);
+
+// Connect a DC voltmeter to this pin.
+const int outputPin = 12;
+
+/* This simple circuit, using a Dual Flip-Flop chip, can emulate
+   quadrature encoder signals.  The clock can come from a fancy
+   function generator or a cheap 555 timer chip.  The clock
+   frequency can be measured with another board running FreqCount
+   http://www.pjrc.com/teensy/td_libs_FreqCount.html
+
+                        +5V
+                         |        Quadrature Encoder Signal Emulator
+ Clock                   |
+ Input o----*--------------------------      ---------------------------o Output1
+            |            |14           |    |
+            |     _______|_______      |    |     _______________ 
+            |    |    CD4013     |     |    |    |    CD4013     |
+            |  5 |               | 1   |    |  9 |               | 13
+        ---------|  D         Q  |-----|----*----|  D         Q  |------o Output2
+       |    |    |               |     |         |               |
+       |    |  3 |               |     |      11 |               |
+       |     ----|> Clk          |      ---------|> Clk          |
+       |         |               |               |               |
+       |       6 |               |             8 |               |
+       |     ----|  S            |           ----|  S            |
+       |    |    |               |          |    |               |
+       |    |  4 |            _  | 2        | 10 |            _  | 12
+       |    *----|  R         Q  |---       *----|  R         Q  |----
+       |    |    |               |          |    |               |    |
+       |    |    |_______________|          |    |_______________|    |
+       |    |            |                  |                         |
+       |    |            | 7                |                         |
+       |    |            |                  |                         |
+        --------------------------------------------------------------
+            |            |                  |
+            |            |                  |
+          -----        -----              -----
+           ---          ---                ---
+            -            -                  -
+*/
+
 
 void setup() {
-    for (auto i : IR_INPUT_PINS)
-        pinMode(i, INPUT);
-
-    for (auto i : IR_OUTPUT_PINS)
-        pinMode(i, OUTPUT);
-
-    Serial.begin(115200);
+  pinMode(outputPin, OUTPUT);
 }
+
+#if defined(__AVR__) || defined(TEENSYDUINO)
+#define REGTYPE unsigned char
+#else
+#define REGTYPE unsigned long
+#endif
 
 void loop() {
-    // digitalWrite(LED_BUILTIN, HIGH);
+  volatile int count = 0;
+  volatile REGTYPE *reg = portOutputRegister(digitalPinToPort(outputPin));
+  REGTYPE mask = digitalPinToBitMask(outputPin);
 
-    // delay(1000);
-    // digitalWrite(LED_BUILTIN, LOW);
-
-    // IR ir_sensor;
-    // ir_sensor.print_test();
-
-    // for (auto input_pin : IR_INPUT_PINS){
-    //     digitalWrite(input_pin, HIGH);
-    // }
-    digitalWrite(D9, HIGH);
-    digitalWrite(D10, HIGH);
-    digitalWrite(D11, HIGH);
-    digitalWrite(D12, HIGH);
-
-    IR ir_sensor;
-    ir_sensor.print_test();
-    for (auto output_pin : IR_OUTPUT_PINS){
-        int val = analogRead(output_pin);
-        Serial.print(val);
-        Serial.print(" ");
-    }
-    Serial.println();
-    delay(50);
+  while (1) {
+    myEnc.read();	// Read the encoder while interrupts are enabled.
+    noInterrupts();
+    *reg |= mask;	// Pulse the pin high, while interrupts are disabled.
+    count = count + 1;
+    *reg &= ~mask;
+    interrupts();
+  }
 }
+

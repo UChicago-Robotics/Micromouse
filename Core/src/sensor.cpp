@@ -11,6 +11,6 @@ void IR::print_test() {
 }
 
 std::vector<double> IR::get_sensor_data() {
-    return {};
+    return {1, 2, 3};
 }
 
