@@ -1,77 +1,38 @@
-#include <Arduino_LSM9DS1.h>
-#include <Encoder.h>
-#include "pins_arduino.h"
 #include "Arduino.h"
+#include "const.h"
+#include "sensor.h"
+#include "LSM9DS1.h"
 
-// Change these two numbers to the pins connected to your encoder
-// or shift register circuit which emulates a quadrature encoder
-//  case 1: both pins are interrupts
-//  case 2: only first pin used as interrupt
-Encoder myEnc(5, 6);
+#define HIGH 1
+#define LOW 0
 
-// Connect a DC voltmeter to this pin.
-const int outputPin = 12;
+//This will run only one time.
+void setup(){
+    Serial.begin(9600);
+    while (!Serial);
+    Serial.println("Started");
 
-/* This simple circuit, using a Dual Flip-Flop chip, can emulate
-   quadrature encoder signals.  The clock can come from a fancy
-   function generator or a cheap 555 timer chip.  The clock
-   frequency can be measured with another board running FreqCount
-   http://www.pjrc.com/teensy/td_libs_FreqCount.html
+    //Set pins as outputs
+    pinMode(A6, OUTPUT);
+    pinMode(A7, OUTPUT);
 
-                        +5V
-                         |        Quadrature Encoder Signal Emulator
- Clock                   |
- Input o----*--------------------------      ---------------------------o Output1
-            |            |14           |    |
-            |     _______|_______      |    |     _______________ 
-            |    |    CD4013     |     |    |    |    CD4013     |
-            |  5 |               | 1   |    |  9 |               | 13
-        ---------|  D         Q  |-----|----*----|  D         Q  |------o Output2
-       |    |    |               |     |         |               |
-       |    |  3 |               |     |      11 |               |
-       |     ----|> Clk          |      ---------|> Clk          |
-       |         |               |               |               |
-       |       6 |               |             8 |               |
-       |     ----|  S            |           ----|  S            |
-       |    |    |               |          |    |               |
-       |    |  4 |            _  | 2        | 10 |            _  | 12
-       |    *----|  R         Q  |---       *----|  R         Q  |----
-       |    |    |               |          |    |               |    |
-       |    |    |_______________|          |    |_______________|    |
-       |    |            |                  |                         |
-       |    |            | 7                |                         |
-       |    |            |                  |                         |
-        --------------------------------------------------------------
-            |            |                  |
-            |            |                  |
-          -----        -----              -----
-           ---          ---                ---
-            -            -                  -
-*/
-
-
-void setup() {
-  pinMode(outputPin, OUTPUT);
+    pinMode(A1, OUTPUT);
+    pinMode(A2, OUTPUT);
 }
 
-#if defined(__AVR__) || defined(TEENSYDUINO)
-#define REGTYPE unsigned char
-#else
-#define REGTYPE unsigned long
-#endif
 
-void loop() {
-  volatile int count = 0;
-  volatile REGTYPE *reg = portOutputRegister(digitalPinToPort(outputPin));
-  REGTYPE mask = digitalPinToBitMask(outputPin);
+void loop(){
+    
+    //This code will turn Motor B clockwise for 2 sec.
+    Serial.println("Running Left Motor");
+    digitalWrite(A6, HIGH);
+    digitalWrite(A7, LOW);
 
-  while (1) {
-    myEnc.read();	// Read the encoder while interrupts are enabled.
-    noInterrupts();
-    *reg |= mask;	// Pulse the pin high, while interrupts are disabled.
-    count = count + 1;
-    *reg &= ~mask;
-    interrupts();
-  }
+    delay(1000);
+
+    Serial.println("Rinning Right Motor");
+    digitalWrite(A1, HIGH);
+    digitalWrite(A2, LOW);
+
+    delay(1000);
 }
-
