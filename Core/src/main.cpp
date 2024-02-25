@@ -1,6 +1,6 @@
 #include "Arduino.h"
 #include "const.h"
-#include "sensor.h"
+//#include "sensor.h"
 #include "LSM9DS1.h"
 
 #define HIGH 1
@@ -13,26 +13,20 @@ void setup(){
     Serial.println("Started");
 
     //Set pins as outputs
-    pinMode(A6, OUTPUT);
-    pinMode(A7, OUTPUT);
-
-    pinMode(A1, OUTPUT);
-    pinMode(A2, OUTPUT);
+    pinMode(D2, OUTPUT);
+    pinMode(D3, OUTPUT);
+    pinMode(D4, OUTPUT);
+    pinMode(D5, OUTPUT);
 }
 
 
 void loop(){
-    
-    //This code will turn Motor B clockwise for 2 sec.
-    Serial.println("Running Left Motor");
-    digitalWrite(A6, HIGH);
-    digitalWrite(A7, LOW);
 
     delay(1000);
+    Serial.println("Motor Test");
+    digitalWrite(D2, HIGH);
+    digitalWrite(D3, LOW);
 
-    Serial.println("Rinning Right Motor");
-    digitalWrite(A1, HIGH);
-    digitalWrite(A2, LOW);
-
-    delay(1000);
+    digitalWrite(D4, HIGH);
+    digitalWrite(D5, LOW);
 }
