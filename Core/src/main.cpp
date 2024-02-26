@@ -24,13 +24,34 @@ void setup(){
     pinMode(RR_IRi,INPUT);
     pinMode(LL_IRi,INPUT);
     pinMode(LF_IRi,INPUT);
+
     digitalWrite(RF_IRo,HIGH);
-    // digitalWrite(RR_IRo,HIGH);
-    // digitalWrite(LF_IRo,HIGH);
-    // digitalWrite(LL_IRo,HIGH);
+    digitalWrite(RR_IRo,HIGH);
+    digitalWrite(LF_IRo,HIGH);
+    digitalWrite(LL_IRo,HIGH);
 }
 
 void loop(){
+<<<<<<< HEAD
     motor::turn_right(90.0);
     delay(2000);
+=======
+
+    // delay(1000);
+    // Serial.println("Motor Test");
+    // digitalWrite(D2, LOW);
+    // digitalWrite(D3, HIGH);
+
+    // digitalWrite(D4, LOW);
+    // digitalWrite(D5, HIGH);
+    delay(50);
+    // Serial.print(analogRead(LL_IRi));
+    // Serial.print("   ");
+    // Serial.print(analogRead(RR_IRi));
+    Serial.print("   ");
+    Serial.print(analogRead(LF_IRi));
+    Serial.print("   ");
+    Serial.print(analogRead(RF_IRi));
+    Serial.println();
+>>>>>>> refs/remotes/origin/main
 }
