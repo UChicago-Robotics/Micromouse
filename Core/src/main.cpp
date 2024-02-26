@@ -31,19 +31,12 @@ void setup(){
     digitalWrite(LL_IRo,HIGH);
 }
 
-void loop(){
-<<<<<<< HEAD
+void motor_test() {
     motor::turn_right(90.0);
     delay(2000);
-=======
+}
 
-    // delay(1000);
-    // Serial.println("Motor Test");
-    // digitalWrite(D2, LOW);
-    // digitalWrite(D3, HIGH);
-
-    // digitalWrite(D4, LOW);
-    // digitalWrite(D5, HIGH);
+void IR_test() {
     delay(50);
     // Serial.print(analogRead(LL_IRi));
     // Serial.print("   ");
@@ -53,5 +46,8 @@ void loop(){
     Serial.print("   ");
     Serial.print(analogRead(RF_IRi));
     Serial.println();
->>>>>>> refs/remotes/origin/main
+}
+
+void loop(){
+    motor_test();
 }
