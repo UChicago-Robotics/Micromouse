@@ -2,18 +2,7 @@
 #include "const.h"
 //#include "sensor.h"
 #include "LSM9DS1.h"
-
-#define HIGH 1
-#define LOW 0
-#define RF_IRi A0
-#define RR_IRi A1
-#define LL_IRi A2
-#define LF_IRi A3
-#define RF_IRo D12
-#define RR_IRo D11
-#define LL_IRo D10
-#define LF_IRo D9
-
+#include "motor.h"
 
 //This will run only one time.
 void setup(){
@@ -41,23 +30,7 @@ void setup(){
     // digitalWrite(LL_IRo,HIGH);
 }
 
-
 void loop(){
-
-    // delay(1000);
-    // Serial.println("Motor Test");
-    // digitalWrite(D2, LOW);
-    // digitalWrite(D3, HIGH);
-
-    // digitalWrite(D4, LOW);
-    // digitalWrite(D5, HIGH);
-    delay(50);
-    // Serial.print(analogRead(A0));
-    // Serial.print("   ");
-    // Serial.print(analogRead(A1));
-    // Serial.print("   ");
-    // Serial.print(analogRead(A2));
-    // Serial.print("   ");
-    Serial.print(analogRead(RF_IRi));
-    Serial.println();
+    motor::turn_right(90.0);
+    delay(2000);
 }
