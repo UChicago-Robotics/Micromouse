@@ -9,7 +9,7 @@
 // constants measured from bot
 const double ticks_per_rev = 360;
 const double wheel_diam = 3.2;
-const double wheel_circ = PI * 3.2;
+const double wheel_circ = M_PI * 3.2;
 const double dist_between_treads = 9.25;
 
 const double turn_diam = dist_between_treads * 2;
