@@ -2,9 +2,12 @@
 #define MOTOR_H
 
 namespace motor {
-    void turn_right(double theta);
-    void turn_left(double theta);
-    void move_forward(double dist);
+    void turn(double theta);
+    void setSpeed(double l, double r);
+    void read();
+    int get_LEnc();
+    int get_REnc();
+    void resetEncs();
 };
 
 #endif

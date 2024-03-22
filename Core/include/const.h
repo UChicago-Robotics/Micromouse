@@ -9,8 +9,8 @@ const int MOTOR_PINS[4] = {D2, D3, D4, D5};
 #define LOW 0
 
 // motor pins <POS><DIR>_MOTOR
-#define RF_MOTOR D5
-#define RB_MOTOR D4
+#define RB_MOTOR D5
+#define RF_MOTOR D4
 #define LF_MOTOR D3
 #define LB_MOTOR D2
 
