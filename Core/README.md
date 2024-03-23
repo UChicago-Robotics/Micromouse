@@ -10,27 +10,38 @@ To install the VSCode extension, see [this guide](https://platformio.org/install
 ```bash
 brew install platformio
 ```
-
-## Running
-To test if the code will compile (note that this does NOT require that the Arduino is connected ):
-
+## Rough structure of the project
+- `/src` is where spicy things happen.
+- `/include` allows spicy things to happen by linking them together.
+- `platformio.ini` declares which environment we want to run the program on, and the project's dependencies.
+- `/test` is not in use right now.
+## Installing dependencies
+This shouldn't be a step, since the building process of platformio should automatically install and resolve dependencies. But in the case this doesn't work, use:
 ```bash
-pio run --environment nano33ble
+pio pkg install
 ```
 
-To check that your board is connected to your computer:
+## Running
+To upload code:
+
+```bash
+pio run --target upload
+```
+
+To read the serial output of the Arduino (note that this will only display output ***after*** code is running on the Arduino) and essentially checking if the board is connected:
 
 ```bash
 pio device monitor
 ```
 
-To upload code:
+To simply test if the code will compile (note that this does NOT require that the Arduino is connected):
 
 ```bash
-pio run --target upload --environment nano33ble
+pio run
 ```
 
-To read the serial output of the Arduino (note that this will only display output ***after*** code is running on the Arduino):
+To specify the environment in any of the following commands, use the `--environment` flag:
+
 ```bash
-platformio device monitor --environment nano33ble
+[command] --environment nano33ble
 ```
