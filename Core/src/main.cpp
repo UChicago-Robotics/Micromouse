@@ -1,9 +1,9 @@
 #include "Arduino.h"
 #include "const.h"
-//#include "sensor.h"
-#include "LSM9DS1.h"
+#include "sensor.h"
 #include "motor.h"
-
+#include "comm.h"
+SensorData SH(10);
 //This will run only one time.
 void setup(){
     Serial.begin(9600);
@@ -29,6 +29,7 @@ void setup(){
     digitalWrite(RR_IRo,HIGH);
     digitalWrite(LF_IRo,HIGH);
     digitalWrite(LL_IRo,HIGH);
+    bt_setup();
 }
 
 void printEncs() {
@@ -36,8 +37,10 @@ void printEncs() {
 }
 
 void motor_test() {
-    Serial.println("Resetting");
     for (int s = -250; s <= 250; s += 20) {
+        if (abs(s) < 30) {
+            continue;
+        }
         motor::resetEncs();
         motor::setSpeed(s,s);
         delay(2000);
@@ -80,9 +83,21 @@ void LF_test() {
     motor::setSpeed(0,0);
 }
 
-
 void loop(){
-    //motor_test();
+    // bt_loop();
+    // motor_test();
     //IR_test();
-    LF_test();
+    // LF_test();
+
+    int * newdat = SH.readSensor();
+    SH.push(newdat);
+    double* newsmooth = SH.expSmooth(.1);
+    for (int i = 0; i < 4; i++) {
+        Serial.print(newdat[i]);
+        Serial.print(",");
+        Serial.print(newsmooth[i]);
+        Serial.print(",");
+    }
+    Serial.println();
+    delay(50);
 }

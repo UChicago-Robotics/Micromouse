@@ -2,14 +2,14 @@
 #include <Arduino_LSM9DS1.h>
 
 const int MOD = 1e6;
-BLEService IMUservice("edff0b05-dd61-4aef-b941-3583bf773dfe");
+BLEService IMUservice("10000");
 
 BLECharacteristic accelData("5b86af8f-925f-4029-9c95-458599341f96", BLERead | BLENotify, 20);
 BLECharacteristic gyroData("373ceb13-35ad-41b5-b924-0604e56d8a4d", BLERead | BLENotify, 20);
 
 void bt_setup() {
-    Serial.begin(9600);
     // Initialize the BLE module
+    Serial.begin(9600);
     if (!BLE.begin()) {
         // If the BLE module fails to initialize, enter an infinite loop
         while (1) {
@@ -45,6 +45,8 @@ void bt_setup() {
 
     // Start advertising the BLE connection
     BLE.advertise();
+
+    Serial.println("Done setup");
 }
 
 void bt_loop() {
@@ -68,5 +70,5 @@ void bt_loop() {
     Serial.println(gyroString.c_str());
     gyroData.writeValue(gyroString.c_str());
 
-    delay(7);
+    delay(1000);
 }

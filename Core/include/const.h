@@ -1,3 +1,4 @@
+#include "Arduino.h"
 #ifndef CONST_H
 #define CONST_H
 
