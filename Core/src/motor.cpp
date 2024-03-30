@@ -4,16 +4,9 @@
 #include "motor.h"
 #include "Arduino.h"
 #include "const.h"
- #include "Encoder.h"
+#include "Encoder.h"
 
 // constants measured from bot
-const double ticks_per_rev = 360;
-const double wheel_diam = 3.2;
-const double wheel_circ = M_PI * 3.2;
-const double dist_between_treads = 9.25;
-
-const double turn_diam = dist_between_treads * 2;
-const double turn_circ = M_PI * turn_diam;
 
 Encoder encR(RR_ENC, RL_ENC);
 Encoder encL(LR_ENC, LL_ENC);
@@ -45,11 +38,11 @@ void motor::read() {
     encRTicks = encR.read();
 }
 
-int motor::get_LEnc() {
-    return encLTicks-encLStart;
+double motor::get_LEnc() { // in cm
+    return ((double)(encLTicks-encLStart))/ticks_per_rev*wheel_circ;
 }
-int motor::get_REnc() {
-    return encRTicks-encRStart;
+double motor::get_REnc() { // in cm
+    return ((double)(encRTicks-encRStart))/ticks_per_rev*wheel_circ;
 }
 void motor::resetEncs() {
     motor::read();

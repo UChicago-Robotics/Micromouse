@@ -3,8 +3,11 @@
 #include "sensor.h"
 #include "motor.h"
 #include "comm.h"
-SensorData SH(10);
-//This will run only one time.
+#include "PID.h"
+#include "madgwickFilter.h"
+SensorData SH(3);
+PID wheelPID(150,0,0); // stupid but works - may require tuning later at high speeds etc, testing at 50
+
 void setup(){
     Serial.begin(9600);
     while (!Serial);
@@ -25,18 +28,17 @@ void setup(){
     pinMode(LL_IRi,INPUT);
     pinMode(LF_IRi,INPUT);
 
-    digitalWrite(RF_IRo,HIGH);
-    digitalWrite(RR_IRo,HIGH);
-    digitalWrite(LF_IRo,HIGH);
-    digitalWrite(LL_IRo,HIGH);
+
     bt_setup();
+
+
 }
 
 void printEncs() {
 
 }
 
-void motor_test() {
+void linearmotor_test() {
     for (int s = -250; s <= 250; s += 20) {
         if (abs(s) < 30) {
             continue;
@@ -55,29 +57,120 @@ void motor_test() {
     }
 }
 
-void IR_test() {
-    delay(100);
-    Serial.print(analogRead(LF_IRi));
-    Serial.print(",");
-    Serial.print(analogRead(LL_IRi));
-    Serial.print(",");
-    Serial.print(analogRead(RR_IRi));
-    Serial.print(",");
-    Serial.print(analogRead(RF_IRi));
-    Serial.println("");
+void drive_straight(double dist, double defspeed) {
+    Serial.println("STRAIGHT");
+    wheelPID.resetI();
+    motor::resetEncs();
+    double L, R, diff = 0;
+    long int t = millis();
+    while (motor::get_LEnc() < dist) {
+        motor::read();
+        L = motor::get_LEnc();
+        R = motor::get_REnc();
+        diff = L-R;
+        long int ct = millis();
+        int dt = ct - t+1;
+        double op = wheelPID.feedback(diff,dt);
+        motor::setSpeed(defspeed,op+defspeed);
+        t = ct;
+        Serial.print(ct);
+        Serial.print("\t");
+        Serial.print(dt);
+        Serial.print("\t");
+        Serial.print(L);
+        Serial.print("\t");
+        Serial.print(R);
+        Serial.print("\t");
+        Serial.print(diff);
+        Serial.print("\t");
+        Serial.println(op);
+    }
+    motor::setSpeed(0,0);
 }
 
-void LF_test() {
+void turn(double angle, double angular) {
+    // angle -pi to pi CCW
+    Serial.println("TURN");
+    wheelPID.resetI();
     motor::resetEncs();
-    delay(15000);
-    motor::setSpeed(-50, -50);
-    while(motor::get_LEnc() > -1075) {
+    double L, R, diff = 0;
+    long int t = millis();
+    double angle_dist = motor::dist_between_treads/2*angle;
+    int flip = 1;
+    if (angle < 0) {flip = -1;}
+
+    while (abs(motor::get_LEnc()) < abs(angle_dist)) {
+        motor::read();
+        L = motor::get_LEnc();
+        R = motor::get_REnc();
+        diff = L+R;
+        long int ct = millis();
+        int dt = ct - t+1;
+        double op = wheelPID.feedback(diff,dt);
+        motor::setSpeed(-angular*flip,-op+angular*flip);
+        t = ct;
+        Serial.print(ct);
+        Serial.print("\t");
+        Serial.print(dt);
+        Serial.print("\t");
+        Serial.print(L);
+        Serial.print("\t");
+        Serial.print(R);
+        Serial.print("\t");
+        Serial.print(diff);
+        Serial.print("\t");
+        Serial.println(op);
+    }
+    motor::setSpeed(0,0);
+}
+
+void IR_test() {
+    SH.frontOn();
+    delay(10);
+    int * newdat = SH.readAll();
+    SH.allOff();
+    SH.push(newdat);
+    double* newsmooth = SH.expSmooth(.1);
+
+    for (int i = 0; i < 2; i++) {
+        Serial.print(newdat[i]);
+        Serial.print(",");
+        Serial.print(newsmooth[i]);
+        Serial.print(",");
+    }
+    Serial.println();
+}
+
+void LF_test(bool a) {
+    motor::resetEncs();
+    int s = 0;
+    if (a) {s = -50;} else {s = 50;}
+    motor::setSpeed(s,s);
+    while(1) {
+        if (a) {
+            if (motor::get_LEnc() < -1075) {break;}
+        } else {
+            if (motor::get_LEnc() > 1075) {break;}
+        }
         motor::read();
         Serial.print(motor::get_LEnc());
         Serial.print(",");
         Serial.print(motor::get_REnc());
         Serial.print(",");
-        Serial.println(analogRead(LF_IRi));
+        SH.allOn();
+        int * newdat = SH.readAll();
+        SH.allOff();
+        SH.push(newdat);
+        double* newsmooth = SH.expSmooth(.1);
+        Serial.print(newdat[0]);
+        Serial.print(",");
+        Serial.print(newsmooth[0]);
+        Serial.print(",");
+        Serial.print(newdat[3]);
+        Serial.print(",");
+        Serial.print(newsmooth[3]);
+        Serial.print(",");
+        Serial.println();
         delay(20);
     }
     motor::setSpeed(0,0);
@@ -85,19 +178,24 @@ void LF_test() {
 
 void loop(){
     // bt_loop();
-    // motor_test();
-    //IR_test();
-    // LF_test();
 
-    int * newdat = SH.readSensor();
-    SH.push(newdat);
-    double* newsmooth = SH.expSmooth(.1);
-    for (int i = 0; i < 4; i++) {
-        Serial.print(newdat[i]);
-        Serial.print(",");
-        Serial.print(newsmooth[i]);
-        Serial.print(",");
-    }
-    Serial.println();
-    delay(50);
+    // motor_test();
+
+    // IR_test();
+    // delay(100);
+
+    // LF_test(0);
+    // LF_test(1);
+
+    // drive_straight(18,60);
+    // delay(500);
+    // turn(PI/2,90);
+    // delay(500);
+    // drive_straight(18,60);
+    // delay(500);
+    // turn(-PI/2,90);
+    // delay(2000);
+
+    SH.readIMU();
+
 }
