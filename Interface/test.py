@@ -10,10 +10,10 @@ from bleak import BleakClient
 from bleak import BleakScanner
 
 
-SERVICE_UUID = "30551738-84fc-4a60-bb8e-221a069b51f5"
-ACC_CHAR_UUID = "5b86af8f-925f-4029-9c95-458599341f96"
+SERVICE_UUID = "10000"
+ACC_CHAR_UUID = "20000"
 # GYRO_CHAR_UUID = "373ceb13-35ad-41b5-b924-0604e56d8a4d"
-NAME = 'UCMicromouse'
+NAME = 'LocalTest'
 logger = logging.getLogger(__name__)
 
 
@@ -22,24 +22,24 @@ def handle_accel_notification(sender, data):
     """
     Handle accel notification
     """
-    print(data.decode())
+    print(f"Here!")
     # Split the data into separate x, y, z values
-    # x, y, z = data.decode().split(',')
-    # acX = float(x)
-    # acY = float(y)
-    # acZ = float(z)
+    x, y, z = data.decode().split(',')
+    acX = float(x)
+    acY = float(y)
+    acZ = float(z)
 
-    # # Get the current time
-    # timestamp = time.time()
+    # Get the current time
+    timestamp = time.time()
 
-    # # Create a dictionary with the accelerometer data
-    # accel_data = {"acc_x": acX, "acc_y": acY, "acc_z": acZ, "Timestamp": timestamp}
+    # Create a dictionary with the accelerometer data
+    accel_data = {"acc_x": acX, "acc_y": acY, "acc_z": acZ, "Timestamp": timestamp}
 
-    # print(f"accel_data: {accel_data}")
-    # # Write the accelerometer data to a JSON file
-    # with open("data.json", "a", encoding="utf-8") as json_file:
-    #     json.dump(accel_data, json_file)
-    #     json_file.write(',\n')
+    print(f"accel_data: {accel_data}")
+    # Write the accelerometer data to a JSON file
+    with open("data.json", "a", encoding="utf-8") as json_file:
+        json.dump(accel_data, json_file)
+        json_file.write(',\n')
 
 # Function to handle gyroscope data received as a notification
 def handle_gyro_notification(sender, data):
@@ -86,6 +86,7 @@ async def run():
         print(f"Something: {time.time()}")
         await client.start_notify(ACC_CHAR_UUID, handle_accel_notification)
         while True:
+            print(time.time())
             await asyncio.sleep(0.001)
 
 if __name__ == "__main__":

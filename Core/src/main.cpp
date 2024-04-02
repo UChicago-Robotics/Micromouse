@@ -1,3 +1,4 @@
+#include <Wire.h>
 #include "Arduino.h"
 #include "const.h"
 #include "sensor.h"
