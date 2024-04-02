@@ -2,6 +2,7 @@
 #include "Arduino.h"
 #include <vector>
 #include <cmath>
+#include <ArduinoBLE.h>
 #include <Arduino_LSM9DS1.h>
 #ifndef SENSOR_H 
 #define SENSOR_H
@@ -15,7 +16,19 @@ class SensorData {
     public:
         // Constructor
         SensorData(int L_val) {
-            IMU.begin();
+            // Initialize the BLE module
+            if (!BLE.begin()) {
+                // If the BLE module fails to initialize, enter an infinite loop
+                while (1) {
+                }
+            }
+
+            // Initialize the IMU
+            if (!IMU.begin()) {
+                // If the IMU fails to initialize, enter an infinite loop
+                while (1) {
+                }
+            }
             L = L_val;
             sensorHistory = new int* [4];
             for (int i = 0; i < 4; ++i) {
@@ -126,6 +139,8 @@ class SensorData {
             Serial.print(b2);
             Serial.print(" ");
             Serial.println(b3);
+            String accelString = String(a1) + "," + String(a2) + "," + String(a3) + "," + String(b1) + "," + String(b2) + "," + String(b3);
+            Serial.println(accelString.c_str());
         }
 
 

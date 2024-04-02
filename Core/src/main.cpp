@@ -29,7 +29,7 @@ void setup(){
     pinMode(LF_IRi,INPUT);
 
 
-    bt_setup();
+    // bt_setup();
 
 
 }
@@ -177,7 +177,6 @@ void LF_test(bool a) {
 }
 
 void loop(){
-    // bt_loop();
 
     // motor_test();
 
@@ -187,15 +186,16 @@ void loop(){
     // LF_test(0);
     // LF_test(1);
 
-    // drive_straight(18,60);
-    // delay(500);
-    // turn(PI/2,90);
-    // delay(500);
-    // drive_straight(18,60);
-    // delay(500);
-    // turn(-PI/2,90);
-    // delay(2000);
+    drive_straight(18,60);
+    delay(500);
+    turn(PI/2,90);
+    delay(500);
+    drive_straight(18,60);
+    delay(500);
+    turn(-PI/2,90);
+    delay(2000);
 
     SH.readIMU();
+    // bt_loop(String(millis()));
 
 }
