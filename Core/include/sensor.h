@@ -17,18 +17,20 @@ class SensorData {
         // Constructor
         SensorData(int L_val) {
             // Initialize the BLE module
-            if (!BLE.begin()) {
-                // If the BLE module fails to initialize, enter an infinite loop
-                while (1) {
-                }
-            }
+            // if (!BLE.begin()) {
+            //     // If the BLE module fails to initialize, enter an infinite loop
+            //     while (1) {
+            //         Serial.println("BAD");
+            //     }
+            // }
 
-            // Initialize the IMU
-            if (!IMU.begin()) {
-                // If the IMU fails to initialize, enter an infinite loop
-                while (1) {
-                }
-            }
+            // // Initialize the IMU
+            // if (!IMU.begin()) {
+            //     // If the IMU fails to initialize, enter an infinite loop
+            //     while (1) {
+            //         Serial.println("IMU BAD");
+            //     }
+            // }
             L = L_val;
             sensorHistory = new int* [4];
             for (int i = 0; i < 4; ++i) {
@@ -126,6 +128,7 @@ class SensorData {
             return arr;
         }
         void readIMU() {
+            /*
             IMU.readGyroscope(a1,a2,a3);
             IMU.readMagneticField(b1,b2,b3);
             Serial.print(a1);
@@ -141,6 +144,7 @@ class SensorData {
             Serial.println(b3);
             String accelString = String(a1) + "," + String(a2) + "," + String(a3) + "," + String(b1) + "," + String(b2) + "," + String(b3);
             Serial.println(accelString.c_str());
+        */
         }
 
 
