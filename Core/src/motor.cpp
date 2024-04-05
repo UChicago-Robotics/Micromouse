@@ -1,22 +1,11 @@
-#include <stdlib.h>
-#include <math.h>
-
-#include "motor.h"
 #include "Arduino.h"
-#include "const.h"
 #include "Encoder.h"
+#include "math.h"
+#include "motor.h"
+#include "const.h"
 
-// constants measured from bot
-
-Encoder encR(RR_ENC, RL_ENC);
-Encoder encL(LR_ENC, LL_ENC);
-
-int encLTicks = 0;
-int encRTicks = 0;
-int encLStart = 0;
-int encRStart = 0;
-
-void motor::setSpeed(double l, double r) {
+MotorController::MotorController(){}
+void MotorController::setSpeed(double l, double r) {
     if (l > 0) {
         analogWrite(LB_MOTOR,0);
         analogWrite(LF_MOTOR,l);
@@ -33,19 +22,19 @@ void motor::setSpeed(double l, double r) {
     }
 }
 
-void motor::read() {
-    encLTicks = encL.read();
-    encRTicks = encR.read();
+void MotorController::read() {
+    this->encLTicks = this->encL.read();
+    this->encRTicks = this->encR.read();
 }
 
-double motor::get_LEnc() { // in cm
-    return ((double)(encLTicks-encLStart))/ticks_per_rev*wheel_circ;
+double MotorController::getEncL() { // in cm
+    return ((double)(this->encLTicks-this->encLStart))/ticks_per_rev*wheel_circ;
 }
-double motor::get_REnc() { // in cm
-    return ((double)(encRTicks-encRStart))/ticks_per_rev*wheel_circ;
+double MotorController::getEncR() { // in cm
+    return ((double)(this->encRTicks-this->encRStart))/ticks_per_rev*wheel_circ;
 }
-void motor::resetEncs() {
-    motor::read();
-    encLStart = encLTicks;
-    encRStart = encRTicks;
+void MotorController::resetEncs() {
+    this->read();
+    this->encLStart = this->encLTicks;
+    this->encRStart = this->encRTicks;
 }
