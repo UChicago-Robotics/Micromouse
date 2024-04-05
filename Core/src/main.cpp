@@ -6,7 +6,6 @@
 #include "pid.h"
 #include "motor.h"
 #include "comm.h"
-PIDController wheelPID(150, 0, 0);  // stupid but works - may require tuning later at high speeds etc, testing at 50
 SensorController sensor(3);
 MotorController motor;
 BluetoothController bt;
@@ -35,6 +34,9 @@ void setup() {
     sensor.init();
     Serial.println("Finished initializing sensors.");
 
+    motor.init();
+    Serial.println("Finished initializing motors.");
+
     bt.init();
     Serial.println("Finished initializing bluetooth.");
 }
@@ -58,6 +60,7 @@ void linearmotor_test() {
     }
 }
 
+/*
 void drive_straight(double dist, double defspeed) {
     Serial.println("STRAIGHT");
     wheelPID.resetI();
@@ -89,6 +92,9 @@ void drive_straight(double dist, double defspeed) {
     motor.setSpeed(0, 0);
 }
 
+*/
+
+/*
 void turn(double angle, double angular) {
     // angle -pi to pi CCW
     Serial.println("TURN");
@@ -96,7 +102,7 @@ void turn(double angle, double angular) {
     motor.resetEncs();
     double L, R, diff = 0;
     long int t = millis();
-    double angle_dist = dist_between_treads / 2 * angle;
+    double angle_dist = BASE_WIDTH / 2 * angle;
     int flip = 1;
     if (angle < 0) {
         flip = -1;
@@ -126,6 +132,8 @@ void turn(double angle, double angular) {
     }
     motor.setSpeed(0, 0);
 }
+*/
+
 
 void IR_test() {
     sensor.frontOn();
@@ -188,6 +196,7 @@ void LF_test(bool a) {
 }
 
 void loop() {
+    // OLD CODE
     // motor_test();
 
     // IR_test();
@@ -206,9 +215,17 @@ void loop() {
     // delay(2000);
 
     // sensor.readIMU();
+    // END OF OLD CODE
 
-    // read sensors
-    // tell motors what to do
-    // send information bluetooth
-    bt_loop(String(millis()));
+
+    if (!motor.isInMotion()) {
+        // send in the next task
+        motor.driveStraight(18, 50);
+    }
+    
+    // workflow:
+    // readings = sensor.read();
+    // motor.consume(readings);
+    motor.control();
+    bt.publish(String("millis"));
 }
