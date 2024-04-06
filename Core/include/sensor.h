@@ -27,6 +27,7 @@ class SensorController {
     void readAll();
     void readFront();
     void readSides();
+    void read();
     int getRR();
     int getRF();
     int getLF();

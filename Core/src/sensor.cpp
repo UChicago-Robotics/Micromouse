@@ -29,6 +29,7 @@ void SensorController::init() {
         // If the IMU fails to initialize, enter an infinite loop
         while (1) Serial.println("Can't start IMU.");
     }
+    allOff();
 }
 void SensorController::allOn() {
     digitalWrite(RF_IRo, HIGH);
@@ -106,6 +107,17 @@ void SensorController::readFront() {
 void SensorController::readSides() {
     this->LL = analogRead(LL_IRi);
     this->RR = analogRead(RR_IRi);
+}
+
+void SensorController::read() {
+    frontOn();
+    delay(10);
+    readFront();
+    frontOff();
+    sidesOn();
+    delay(10);
+    readSides();
+    sidesOff();
 }
 
 void SensorController::push() {
