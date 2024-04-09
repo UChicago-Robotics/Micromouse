@@ -48,18 +48,28 @@ public:
     uint8_t* real_maze;
 
     FloodFill() {
-        maze_size = 6;
+        maze_size = 16;
 
         mem_maze = (uint8_t*) calloc(sizeof(char), maze_size*maze_size);
         real_maze = (uint8_t*) calloc(sizeof(char), maze_size*maze_size);
         
-        uint8_t intput_arr[6][6] = {
-            {0, 0, 0, 0, 0, 1},
-            {0, 0, 0, 0, 0, 1},
-            {0, 1, 1, 1, 1, 1},
-            {0, 1, 0, 0, 0, 1},
-            {0, 0, 0, 0, 0, 1},
-            {0, 1, 1, 1, 1, 1},
+        uint8_t intput_arr[16][16] = {
+            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1},
+            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+            {1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1},
+            {1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1},
+            {1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1},
+            {1,1,1,1,1,1,1,1,1,0,1,1,1,0,1,1},
+            {1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1},
+            {1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1},
+            {1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1},
+            {1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1},
+            {1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1},
+            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
         };
 
         for (int i = 0; i < maze_size; i++) {
@@ -108,15 +118,17 @@ public:
     void floodfill(int target_r, int target_c) {
         int c_row = 1, c_col = 1;
 
-        std::unordered_set<std::pair<int, int>, pair_hash> visited;
-        std::vector<std::pair<int, int>> visit_stack; // use stack to do DFS
-
-        // add starting node to queue
+        std::vector<std::pair<int, int>> visit_stack;
         visit_stack.push_back({c_row, c_col});
 
         while (!visit_stack.empty()) {
             // backtrack to most recentley visited node
             auto cur = visit_stack[visit_stack.size()-1];
+            if (mem_maze[index(cur.first, cur.second)] == VISITED) {
+                visit_stack.pop_back();
+                continue;
+            }
+
             c_row = cur.first, c_col = cur.second;
             visit_stack.pop_back();
 
