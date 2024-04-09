@@ -8,6 +8,8 @@ const double BASE_WIDTH = 9.25;
 const double WHEEL_DIAM = 3.2;
 const double WHEEL_CIRC = M_PI * 3.2;
 const int TICKS_PER_REV = 360;
+const double EPSILON = 1;
+const int MIN_SPEED = 35;
 class MotorController {
    private:
     int encLTicks = 0;
@@ -19,9 +21,10 @@ class MotorController {
     Encoder encR = Encoder(RR_ENC, RL_ENC);
     Encoder encL = Encoder(LR_ENC, LL_ENC);
     int lastRun = 0;
-    PIDController wheelPID = PIDController(150, 0, 0);  // stupid but works - may require tuning later at high speeds etc, testing at 50
+    PIDController wheelPID = PIDController(0.05, 0, 0);
     int baseSpeed = 0;
     bool inMotion = false;
+    int counter = 0;
 
    public:
     MotorController();
@@ -31,9 +34,9 @@ class MotorController {
     double getEncL();
     double getEncR();
     void resetEncs();
-    void setTargetL(int targetL);
+    void setTarget(double targetL, double targetR);
     bool isInMotion();
-    void driveStraight(int dist, int bSpeed);
+    void driveStraight(double dist, int bSpeed);
     void control();
 };
 #endif

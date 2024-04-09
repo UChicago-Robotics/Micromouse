@@ -8,11 +8,11 @@
 #include "comm.h"
 SensorController sensor(3);
 MotorController motor;
-BluetoothController bt;
-
+long int last = 0;
+long int lastDriven = 0;
 void setup() {
-    Serial.begin(115200);
-
+    Serial.begin(9600);
+    while(!Serial) delay(5);
     Serial.println("Initializing...");
 
     // Motors
@@ -29,6 +29,7 @@ void setup() {
     pinMode(RR_IRi, INPUT);
     pinMode(LL_IRi, INPUT);
     pinMode(LF_IRi, INPUT);
+    delay(5000);
     Serial.println("Finished initializing pins.");
 
     sensor.init();
@@ -37,9 +38,13 @@ void setup() {
     motor.init();
     Serial.println("Finished initializing motors.");
 
-    bt.init();
+    // bt.init();
+    // bt_setup();
     Serial.println("Finished initializing bluetooth.");
+    delay(3000);
 }
+
+/*
 
 void linearmotor_test() {
     for (int s = -250; s <= 250; s += 20) {
@@ -60,7 +65,6 @@ void linearmotor_test() {
     }
 }
 
-/*
 void drive_straight(double dist, double defspeed) {
     Serial.println("STRAIGHT");
     wheelPID.resetI();
@@ -134,7 +138,7 @@ void turn(double angle, double angular) {
 }
 */
 
-
+/*
 void IR_test() {
     sensor.frontOn();
     delay(10);
@@ -195,37 +199,23 @@ void LF_test(bool a) {
     motor.setSpeed(0, 0);
 }
 
+*/
+
 void loop() {
-    // OLD CODE
-    // motor_test();
-
-    // IR_test();
-    // delay(100);
-
-    // LF_test(0);
-    // LF_test(1);
-
-    // drive_straight(18, 60);
-    // delay(500);
-    // turn(PI / 2, 90);
-    // delay(500);
-    // drive_straight(18, 60);
-    // delay(500);
-    // turn(-PI / 2, 90);
-    // delay(2000);
-
-    // sensor.readIMU();
-    // END OF OLD CODE
-
-
-    if (!motor.isInMotion()) {
-        // send in the next task
-        motor.driveStraight(18, 50);
+    long int ct = millis();
+    last = ct;
+    if (motor.isInMotion()) {
+        lastDriven = ct;
+    } else {
+        if (ct - lastDriven > 6000) {
+            motor.driveStraight(18, 50);
+        }
     }
     
     // workflow:
     // readings = sensor.read();
     // motor.consume(readings);
     motor.control();
-    bt.publish(String("millis"));
+    // BLE.poll();
+    // bt_loop(String(millis()));
 }

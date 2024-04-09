@@ -13,4 +13,6 @@ class BluetoothController {
     void publish(String data);
     void poll();
 };
+void bt_setup();
+void bt_loop(String data);
 #endif
