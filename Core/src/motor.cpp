@@ -79,7 +79,7 @@ void MotorController::control() {
         int dt = ct - this->lastRun + 1;
         double diff = l - r;
         double op = this->wheelPID.feedback(diff, dt);
-        this->setSpeed(this->baseSpeed, this->baseSpeed + op);
+        this->setSpeed(this->baseSpeed, this->baseSpeed);
         this->lastRun = ct;
 
         if (this->counter % 100 == 0) {

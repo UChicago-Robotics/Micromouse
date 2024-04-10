@@ -6,7 +6,7 @@
 #include "pid.h"
 #include "motor.h"
 #include "comm.h"
-SensorController sensor(3);
+SensorController sensor(3, 0.1);
 MotorController motor;
 long int last = 0;
 long int lastDriven = 0;
@@ -39,11 +39,10 @@ void setup() {
     Serial.println("Finished initializing motors.");
 
     // bt.init();
-    // bt_setup();
+    bt_setup();
     Serial.println("Finished initializing bluetooth.");
     delay(3000);
 }
-
 /*
 
 void linearmotor_test() {
@@ -216,6 +215,6 @@ void loop() {
     // readings = sensor.read();
     // motor.consume(readings);
     motor.control();
-    // BLE.poll();
-    // bt_loop(String(millis()));
+    BLE.poll();
+    bt_loop(String(millis()));
 }
