@@ -1,9 +1,10 @@
 #include "sensor.h"
 #include "Arduino.h"
-#include "Arduino_LSM9DS1.h"
+#include "Arduino_BMI270_BMM150.h"
 #include "stdlib.h"
 
 SensorController::SensorController(int L_val, double lambda_val) {
+    // this->q_est = {1, 0, 0, 0};       // initialize with as unit vector with real component  = 1
     this->L = L_val;
     this->lambda = lambda_val;
     this->RR = 0;
@@ -14,6 +15,9 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RFs = 0;
     this->LFs = 0;
     this->LLs = 0;
+    this->roll = 0;
+    this->yaw = 0;
+    this->pitch = 0;
     this->sensorHistory = new int*[4];
     for (int i = 0; i < 4; ++i) {
         this->sensorHistory[i] = new int[L];
@@ -180,7 +184,25 @@ void SensorController::readIMU() {
     IMU.readAcceleration(this->ax, this->ay, this->az);
     IMU.readGyroscope(this->gx, this->gy, this->gz);
 }
+void SensorController::readFilterIMU() {
+    this->readIMU();
+    // imu_filter(this->ax,this->ay,this->az,this->gx,this->gy,this->gz);
+    // eulerAngles(this->q_est, &this->roll, &this->pitch, &this->yaw);
+}
+
+float SensorController::getRoll() {
+    return this->roll;
+}
+float SensorController::getPitch() {
+    return this->pitch;
+}
+float SensorController::getYaw() {
+    return this->yaw;
+}
+
 String SensorController::dumpString() {
     // LFs,LLs,RRs,RFs,ax,ay,az,gx,gy,gz with 2 decimals of precision
     return String(this->LFs,2) + "," + String(this->LLs,2) + "," + String(this->RRs,2) + "," + String(this->RFs,2) + "," + String(this->ax,2) + "," + String(this->ay,2) + "," + String(this->az,2) + "," + String(this->gx,2) + "," + String(this->gy,2) + "," + String(this->gz,2);
+    // return String(this->ax,2) + "," + String(this->ay,2) + "," + String(this->az,2) + "," + String(this->gx,2) + "," + String(this->gy,2) + "," + String(this->gz,2) + "\t\t" + String(this->roll,2) + "," + String(this->pitch,2) + "," + String(this->yaw,2);
+
 }

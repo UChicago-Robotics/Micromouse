@@ -6,9 +6,11 @@
 #include "pid.h"
 #include "motor.h"
 #include "comm.h"
-SensorController sensor(3);
+// #include "madgwickFilter.h"
+
+SensorController sensor(3,.1);
 MotorController motor;
-BluetoothController bt;
+// BluetoothController bt;
 
 void setup() {
     Serial.begin(115200);
@@ -29,6 +31,8 @@ void setup() {
     pinMode(RR_IRi, INPUT);
     pinMode(LL_IRi, INPUT);
     pinMode(LF_IRi, INPUT);
+    // mode button
+    pinMode(BUTTON, INPUT);
     Serial.println("Finished initializing pins.");
 
     sensor.init();
@@ -37,7 +41,7 @@ void setup() {
     motor.init();
     Serial.println("Finished initializing motors.");
 
-    bt.init();
+    // bt.init();
     Serial.println("Finished initializing bluetooth.");
 }
 
@@ -135,65 +139,65 @@ void turn(double angle, double angular) {
 */
 
 
-void IR_test() {
-    sensor.frontOn();
-    delay(10);
-    int *newdat = sensor.readAll();
-    sensor.allOff();
-    sensor.push(newdat);
-    double *newsmooth = sensor.expSmooth(.1);
+// void IR_test() {
+//     sensor.frontOn();
+//     delay(10);
+//     int *newdat = sensor.readAll();
+//     sensor.allOff();
+//     sensor.push(newdat);
+//     double *newsmooth = sensor.expSmooth();
 
-    for (int i = 0; i < 2; i++) {
-        Serial.print(newdat[i]);
-        Serial.print(",");
-        Serial.print(newsmooth[i]);
-        Serial.print(",");
-    }
-    Serial.println();
-}
+//     for (int i = 0; i < 2; i++) {
+//         Serial.print(newdat[i]);
+//         Serial.print(",");
+//         Serial.print(newsmooth[i]);
+//         Serial.print(",");
+//     }
+//     Serial.println();
+// }
 
-void LF_test(bool a) {
-    motor.resetEncs();
-    int s = 0;
-    if (a) {
-        s = -50;
-    } else {
-        s = 50;
-    }
-    motor.setSpeed(s, s);
-    while (1) {
-        if (a) {
-            if (motor.getEncL() < -1075) {
-                break;
-            }
-        } else {
-            if (motor.getEncL() > 1075) {
-                break;
-            }
-        }
-        motor.read();
-        Serial.print(motor.getEncL());
-        Serial.print(",");
-        Serial.print(motor.getEncR());
-        Serial.print(",");
-        sensor.allOn();
-        int *newdat = sensor.readAll();
-        sensor.allOff();
-        sensor.push(newdat);
-        double *newsmooth = sensor.expSmooth(.1);
-        Serial.print(newdat[0]);
-        Serial.print(",");
-        Serial.print(newsmooth[0]);
-        Serial.print(",");
-        Serial.print(newdat[3]);
-        Serial.print(",");
-        Serial.print(newsmooth[3]);
-        Serial.print(",");
-        Serial.println();
-        delay(20);
-    }
-    motor.setSpeed(0, 0);
-}
+// void LF_test(bool a) {
+//     motor.resetEncs();
+//     int s = 0;
+//     if (a) {
+//         s = -50;
+//     } else {
+//         s = 50;
+//     }
+//     motor.setSpeed(s, s);
+//     while (1) {
+//         if (a) {
+//             if (motor.getEncL() < -1075) {
+//                 break;
+//             }
+//         } else {
+//             if (motor.getEncL() > 1075) {
+//                 break;
+//             }
+//         }
+//         motor.read();
+//         Serial.print(motor.getEncL());
+//         Serial.print(",");
+//         Serial.print(motor.getEncR());
+//         Serial.print(",");
+//         sensor.allOn();
+//         int *newdat = sensor.readAll();
+//         sensor.allOff();
+//         sensor.push(newdat);
+//         double *newsmooth = sensor.expSmooth(.1);
+//         Serial.print(newdat[0]);
+//         Serial.print(",");
+//         Serial.print(newsmooth[0]);
+//         Serial.print(",");
+//         Serial.print(newdat[3]);
+//         Serial.print(",");
+//         Serial.print(newsmooth[3]);
+//         Serial.print(",");
+//         Serial.println();
+//         delay(20);
+//     }
+//     motor.setSpeed(0, 0);
+// }
 
 void loop() {
     // OLD CODE
@@ -214,18 +218,24 @@ void loop() {
     // turn(-PI / 2, 90);
     // delay(2000);
 
-    // sensor.readIMU();
-    // END OF OLD CODE
+    // full sensor dump
+    sensor.read();
+    sensor.push();
+    sensor.readFilterIMU();
+    Serial.print(sensor.dumpString());
+    motor.read();
+    Serial.print(",");
+    Serial.print(motor.getEncL());
+    Serial.print(",");
+    Serial.println(motor.getEncR());
 
 
-    if (!motor.isInMotion()) {
-        // send in the next task
-        motor.driveStraight(18, 50);
-    }
+    // if (!motor.isInMotion()) {
+    //     // send in the next task
+    //     motor.driveStraight(18, 50);
+    // }
     
     // workflow:
-    // readings = sensor.read();
-    // motor.consume(readings);
-    motor.control();
-    bt.publish(String("millis"));
+    // motor.control();
+    // bt.publish(String("millis"));
 }

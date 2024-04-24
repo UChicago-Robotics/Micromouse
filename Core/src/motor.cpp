@@ -34,7 +34,7 @@ void MotorController::read() {
 }
 
 double MotorController::getEncL() { // in cm
-    return ((double)(this->encLTicks-this->encLStart))/TICKS_PER_REV*WHEEL_CIRC;;
+    return ((double)(this->encLTicks-this->encLStart))/TICKS_PER_REV*WHEEL_CIRC;
 }
 
 double MotorController::getEncR() { // in cm
@@ -93,5 +93,6 @@ void MotorController::control() {
     else {
         this->inMotion = false;
         this->setSpeed(0, 0);
+        delay(1000); // TODO
     }
 }
