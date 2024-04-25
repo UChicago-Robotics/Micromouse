@@ -51,14 +51,34 @@ void MotorController::setTargetL(int targetL){
     this->targL = targetL;
 }
 
+double MotorController::getTargetL() {
+    return this->targL;
+}
+
 bool MotorController::isInMotion() {
     return this->inMotion;
+}
+
+void MotorController::setMotion(bool a) {
+    this->inMotion = a;
+}
+void MotorController::setBaseSpeed(double bs) {
+    this->baseSpeed = bs;
+}
+double MotorController::getBaseSpeed() {
+    return this->baseSpeed;
+}
+
+void MotorController::setLastRun(long int lr) {
+    this->lastRun = lr;
+}
+long int MotorController::getLastRun() {
+    return this->lastRun;
 }
 
 void MotorController::driveStraight(int dist, int bSpeed){
     // add task to drive with dist and bSpeed
     // left-biased driving straight
-    Serial.println("Driving Straight");
     this->resetEncs();
     this->setTargetL(dist);
     this->inMotion = true;
@@ -69,6 +89,7 @@ void MotorController::driveStraight(int dist, int bSpeed){
 
 void MotorController::control() {
     this->read();
+
     double l = this->getEncL(), r = this->getEncR();
     if (l < this->targL) {
         double diff = l - r;
@@ -77,22 +98,28 @@ void MotorController::control() {
         double op = this->wheelPID.feedback(diff, dt);
         this->setSpeed(this->baseSpeed, this->baseSpeed + op);
         this->lastRun = ct;
-
-        Serial.print(ct);
-        Serial.print("\t");
-        Serial.print(dt);
-        Serial.print("\t");
-        Serial.print(l);
-        Serial.print("\t");
-        Serial.print(r);
-        Serial.print("\t");
-        Serial.print(diff);
-        Serial.print("\t");
-        Serial.println(op);
+        // Serial.print(ct);
+        // Serial.print("\t");
+        // Serial.print(dt);
+        // Serial.print("\t");
+        // Serial.print(l);
+        // Serial.print("\t");
+        // Serial.print(r);
+        // Serial.print("\t");
+        // Serial.print(diff);
+        // Serial.print("\t");
+        // Serial.println(op);
     }
     else {
         this->inMotion = false;
         this->setSpeed(0, 0);
         delay(1000); // TODO
     }
+}
+
+double MotorController::PIDfeedback(double diff, double diff_t) {
+    return this->wheelPID.feedback(diff, diff_t);
+}
+double MotorController::getMinSpeed() {
+    return this->cutoffSpeed;
 }

@@ -4,7 +4,6 @@
 #include "stdlib.h"
 
 SensorController::SensorController(int L_val, double lambda_val) {
-    // this->q_est = {1, 0, 0, 0};       // initialize with as unit vector with real component  = 1
     this->L = L_val;
     this->lambda = lambda_val;
     this->RR = 0;
@@ -18,6 +17,16 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->roll = 0;
     this->yaw = 0;
     this->pitch = 0;
+    this->LL_cutoff = 5; // TODO cutoff for missing wall
+    this->RR_cutoff = 5;
+    this->RF_cutoff = 0;
+    this->LF_cutoff = 0;
+    this->LL_coeff = .05; // weighting of wall dist vs encoder diff
+    this->RR_coeff = .05;
+    this->RF_coeff = .1;
+    this->LF_coeff = .1;
+
+
     this->sensorHistory = new int*[4];
     for (int i = 0; i < 4; ++i) {
         this->sensorHistory[i] = new int[L];
@@ -34,6 +43,10 @@ void SensorController::init() {
         while (1) Serial.println("Can't start IMU.");
     }
     allOff();
+    this->readIMU();
+    this->Gz_offset = this->gz;
+    Serial.print("Gz Offset: ");
+    Serial.println(this->Gz_offset);
 }
 void SensorController::allOn() {
     digitalWrite(RF_IRo, HIGH);
@@ -88,15 +101,15 @@ int SensorController::getLL() {
 }
 
 float SensorController::getRRs() {
-    return this->LLs;
+    return this->RRs;
 }
 
 float SensorController::getRFs() {
-    return this->LLs;
+    return this->RFs;
 }
 
 float SensorController::getLFs() {
-    return this->LLs;
+    return this->LFs;
 }
 
 float SensorController::getLLs() {
@@ -183,26 +196,72 @@ void SensorController::push() {
 void SensorController::readIMU() {
     IMU.readAcceleration(this->ax, this->ay, this->az);
     IMU.readGyroscope(this->gx, this->gy, this->gz);
+    this->gz -= this->Gz_offset;
 }
 void SensorController::readFilterIMU() {
     this->readIMU();
-    // imu_filter(this->ax,this->ay,this->az,this->gx,this->gy,this->gz);
-    // eulerAngles(this->q_est, &this->roll, &this->pitch, &this->yaw);
 }
 
-float SensorController::getRoll() {
-    return this->roll;
-}
-float SensorController::getPitch() {
-    return this->pitch;
-}
-float SensorController::getYaw() {
-    return this->yaw;
-}
+
 
 String SensorController::dumpString() {
     // LFs,LLs,RRs,RFs,ax,ay,az,gx,gy,gz with 2 decimals of precision
     return String(this->LFs,2) + "," + String(this->LLs,2) + "," + String(this->RRs,2) + "," + String(this->RFs,2) + "," + String(this->ax,2) + "," + String(this->ay,2) + "," + String(this->az,2) + "," + String(this->gx,2) + "," + String(this->gy,2) + "," + String(this->gz,2);
-    // return String(this->ax,2) + "," + String(this->ay,2) + "," + String(this->az,2) + "," + String(this->gx,2) + "," + String(this->gy,2) + "," + String(this->gz,2) + "\t\t" + String(this->roll,2) + "," + String(this->pitch,2) + "," + String(this->yaw,2);
+}
 
+void SensorController::resetWallBase() {
+    // calibrates the "center values" of the left and right sensors based on current walls
+    this->read();
+    this->push();
+    this->LL_base = this->LLs;
+    this->RR_base = this->RRs;
+    Serial.print(this->LL_base);
+    Serial.print(" ");
+    Serial.println(this->RR_base);
+}
+void SensorController::setBaseL(float l) {
+    this->LL_base = l;
+}
+void SensorController::setBaseR(float r) {
+    this->RR_base = r;
+}
+float SensorController::getBaseL() {
+    return this->LL_base;
+}
+float SensorController::getBaseR() {
+    return this->RR_base;
+}
+
+float SensorController::getLLCut() {
+    return this->LL_cutoff;
+}
+float SensorController::getRRCut() {
+    return this->RR_cutoff;
+}
+float SensorController::getLFCut() {
+    return this->LF_cutoff;
+}
+float SensorController::getRFCut() {
+    return this->RF_cutoff;
+}
+
+float SensorController::getLLCoeff() {
+    return this->LL_coeff;
+}
+float SensorController::getRRCoeff() {
+    return this->RR_coeff;
+}
+float SensorController::getLFCoeff() {
+    return this->LF_coeff;
+}
+float SensorController::getRFCoeff() {
+    return this->RF_coeff;
+}
+
+float SensorController::getAz() {
+    return this->az;
+}
+
+float SensorController::getGz(){
+    return this->gz-this->Gz_offset;
 }

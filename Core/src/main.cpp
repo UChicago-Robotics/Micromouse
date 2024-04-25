@@ -10,6 +10,7 @@
 
 SensorController sensor(3,.1);
 MotorController motor;
+int cells = 0;
 // BluetoothController bt;
 
 void setup() {
@@ -43,6 +44,9 @@ void setup() {
 
     // bt.init();
     Serial.println("Finished initializing bluetooth.");
+
+    //TODO make based on when switch flipped
+    sensor.resetWallBase();
 }
 
 void linearmotor_test() {
@@ -82,15 +86,15 @@ void drive_straight(double dist, double defspeed) {
         motor.setSpeed(defspeed, op + defspeed);
         t = ct;
         Serial.print(ct);
-        Serial.print("\t");
+        Serial.print(",");
         Serial.print(dt);
-        Serial.print("\t");
+        Serial.print(",");
         Serial.print(L);
-        Serial.print("\t");
+        Serial.print(",");
         Serial.print(R);
-        Serial.print("\t");
+        Serial.print(",");
         Serial.print(diff);
-        Serial.print("\t");
+        Serial.print(",");
         Serial.println(op);
     }
     motor.setSpeed(0, 0);
@@ -123,119 +127,169 @@ void turn(double angle, double angular) {
         motor.setSpeed(-angular * flip, -op + angular * flip);
         t = ct;
         Serial.print(ct);
-        Serial.print("\t");
+        Serial.print(",");
         Serial.print(dt);
-        Serial.print("\t");
+        Serial.print(",");
         Serial.print(L);
-        Serial.print("\t");
+        Serial.print(",");
         Serial.print(R);
-        Serial.print("\t");
+        Serial.print(",");
         Serial.print(diff);
-        Serial.print("\t");
+        Serial.print(",");
         Serial.println(op);
     }
     motor.setSpeed(0, 0);
 }
 */
 
-
-// void IR_test() {
-//     sensor.frontOn();
-//     delay(10);
-//     int *newdat = sensor.readAll();
-//     sensor.allOff();
-//     sensor.push(newdat);
-//     double *newsmooth = sensor.expSmooth();
-
-//     for (int i = 0; i < 2; i++) {
-//         Serial.print(newdat[i]);
-//         Serial.print(",");
-//         Serial.print(newsmooth[i]);
-//         Serial.print(",");
-//     }
-//     Serial.println();
-// }
-
-// void LF_test(bool a) {
-//     motor.resetEncs();
-//     int s = 0;
-//     if (a) {
-//         s = -50;
-//     } else {
-//         s = 50;
-//     }
-//     motor.setSpeed(s, s);
-//     while (1) {
-//         if (a) {
-//             if (motor.getEncL() < -1075) {
-//                 break;
-//             }
-//         } else {
-//             if (motor.getEncL() > 1075) {
-//                 break;
-//             }
-//         }
-//         motor.read();
-//         Serial.print(motor.getEncL());
-//         Serial.print(",");
-//         Serial.print(motor.getEncR());
-//         Serial.print(",");
-//         sensor.allOn();
-//         int *newdat = sensor.readAll();
-//         sensor.allOff();
-//         sensor.push(newdat);
-//         double *newsmooth = sensor.expSmooth(.1);
-//         Serial.print(newdat[0]);
-//         Serial.print(",");
-//         Serial.print(newsmooth[0]);
-//         Serial.print(",");
-//         Serial.print(newdat[3]);
-//         Serial.print(",");
-//         Serial.print(newsmooth[3]);
-//         Serial.print(",");
-//         Serial.println();
-//         delay(20);
-//     }
-//     motor.setSpeed(0, 0);
-// }
-
-void loop() {
-    // OLD CODE
-    // motor_test();
-
-    // IR_test();
-    // delay(100);
-
-    // LF_test(0);
-    // LF_test(1);
-
-    // drive_straight(18, 60);
-    // delay(500);
-    // turn(PI / 2, 90);
-    // delay(500);
-    // drive_straight(18, 60);
-    // delay(500);
-    // turn(-PI / 2, 90);
-    // delay(2000);
-
-    // full sensor dump
+std::array<bool, 3> readCurrentWalls() {
+    // Example logic to generate boolean values
     sensor.read();
     sensor.push();
-    sensor.readFilterIMU();
-    Serial.print(sensor.dumpString());
+    bool L = (sensor.getLLs() > .75*sensor.getBaseL());
+    bool F = (sensor.getLFs() + sensor.getRFs() >  450); //TODO
+    bool R = (sensor.getRRs() > .75*sensor.getBaseR());
+    return {L,F,R};
+}
+
+bool controlMaze() {
+    // motor.control but with wall sensing
+    // drives straight with encoder target while actively avoiding walls
+    // should be able to handle presence and absence of walls
+    // returns whether at target
     motor.read();
-    Serial.print(",");
-    Serial.print(motor.getEncL());
-    Serial.print(",");
-    Serial.println(motor.getEncR());
+    double l = motor.getEncL();
+    double r = motor.getEncR();
+    double L = motor.getTargetL();
+    if (l < L) {
+        // motor differential
+        double diffEnc = l - r;
+        // wall differential
+        sensor.read();
+        sensor.push();
+        float diffLWall = sensor.getLLs()-sensor.getBaseL();
+        float diffRWall = sensor.getRRs()-sensor.getBaseR();
 
+        float LWcontrib = 0;
+        if (diffLWall > sensor.getLLCut()) {
+            LWcontrib = diffLWall*sensor.getLLCoeff();
+        }
+        float RWcontrib = 0;
+        if (diffRWall > sensor.getRRCut()) {
+            RWcontrib = diffRWall*sensor.getRRCoeff();
+        } 
+        float totalDiff = diffEnc - LWcontrib + RWcontrib;
+        
+        long int ct = millis();
+        int dt = ct - motor.getLastRun() + 1;
+        double op = motor.PIDfeedback(totalDiff, dt);
+        double ls = motor.getBaseSpeed();
+        double rs = ls + op;
+        
+        // ramps down speed linearly until target
+        // https://www.desmos.com/calculator/50fkyhu6ek
+        // double frac = .8;
+        // double lowspeed = motor.getMinSpeed();
+        // if (l > frac*L) {
+        //     ls = (lowspeed-ls)*l/(L*(1-frac)) + lowspeed - (lowspeed - ls)/(1-frac);
+        //     rs = (lowspeed-rs)*l/(L*(1-frac)) + lowspeed - (lowspeed - rs)/(1-frac);
+        // }
 
-    // if (!motor.isInMotion()) {
-    //     // send in the next task
-    //     motor.driveStraight(18, 50);
-    // }
-    
+        motor.setSpeed(ls,rs);
+        motor.setLastRun(ct);
+        Serial.print("t");
+        Serial.print(ct);
+        Serial.print(",dt ");
+        Serial.print(dt);
+        Serial.print(",l ");
+        Serial.print(l);
+        Serial.print(",r ");
+        Serial.print(r);
+        Serial.print(",sL ");
+        Serial.print(diffLWall);
+        Serial.print(",sR ");
+        Serial.print(diffRWall);
+        Serial.print(",dE ");
+        Serial.print(diffEnc);
+        Serial.print(",dL ");
+        Serial.print(LWcontrib);
+        Serial.print(",dR ");
+        Serial.print(RWcontrib);
+        Serial.print(",dT ");
+        Serial.print(totalDiff);
+        Serial.print(",op ");
+        Serial.println(op);
+        return false; // ie not there yet
+    }
+    else {
+        motor.setMotion(false);
+        motor.setSpeed(0, 0);
+        return true; // ie there
+    }
+}
+
+void turnDeg(double deg) { // positive = CCW
+    double angle = 0;
+    long int hold_time = micros();
+    double turn_speed = 45; // anything less stalls it
+    double prefact = -1;
+    if (deg < 0) {prefact = 1;}
+    motor.setSpeed(turn_speed*prefact,turn_speed*prefact*-1);
+    while (abs(angle) < abs(deg*.7)) {
+        sensor.readIMU();
+        long int curr_time = micros();
+        angle += (float)(.000001)*sensor.getGz()*(curr_time-hold_time);
+        hold_time = curr_time;
+    }
+    motor.setSpeed(0,0);
+}
+
+void loop() {
+    // <OLDCODE>
+    // linear_motor_test();
+    // <\OLDCODE>
+
+    //full sensor printout dump
+    // sensor.read();
+    // sensor.push();
+    // sensor.readIMU();
+    // Serial.print(sensor.dumpString());
+    // motor.read();
+    // Serial.print(",");
+    // Serial.print(motor.getEncL());
+    // Serial.print(",");
+    // Serial.println(motor.getEncR());
+
+    //partial IMU dump
+    // sensor.readIMU();
+    // Serial.print(",");
+    // Serial.print(sensor.getAz());
+    // Serial.print(",");
+    // Serial.println(sensor.getGz());
+    // delay(100);
+
+    // driving
+
+    if (!motor.isInMotion()) {
+        motor.driveStraight(15, 50);
+    }
     // workflow:
-    // motor.control();
+    if (controlMaze()) {
+        delay(1000);
+        cells++;
+        // dump walls
+        std::array<bool,3> currentWalls = readCurrentWalls();
+        for (bool b : currentWalls) {
+            Serial.print(b);
+            Serial.print(",");
+        }
+        Serial.println();
+        if (cells == 3) {
+            turnDeg(-90);
+        }
+    }
+
+
+
     // bt.publish(String("millis"));
 }

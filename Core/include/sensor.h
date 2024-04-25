@@ -14,7 +14,10 @@ class SensorController {
         float RRs, RFs, LFs, LLs;
         int currentIndex;     // Index to keep track of the current position to insert new data
         float gx, gy, gz, ax, ay, az, roll, pitch, yaw;
-
+        float LL_base, RR_base;
+        float LL_cutoff, RR_cutoff, LF_cutoff, RF_cutoff; // cutoff for missing wall ("__ Wall absent")
+        float LL_coeff, RR_coeff, LF_coeff, RF_coeff;
+        float Gz_offset = 0;
     public:
         SensorController(int L_val, double lambda_val);
         void init();
@@ -43,5 +46,20 @@ class SensorController {
         float getPitch();
         float getYaw();
         String dumpString();
+        void resetWallBase();
+        void setBaseL(float l);
+        void setBaseR(float r);
+        float getBaseL();
+        float getBaseR();
+        float getLLCut();
+        float getRRCut();
+        float getLFCut();
+        float getRFCut();
+        float getLLCoeff();
+        float getRRCoeff();
+        float getLFCoeff();
+        float getRFCoeff();
+        float getAz();
+        float getGz();
 };
 #endif
