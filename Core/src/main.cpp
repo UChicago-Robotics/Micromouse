@@ -10,10 +10,13 @@
 #include "pid.h"
 #include "motor.h"
 #include "comm.h"
+#include <vector>
+
 SensorController sensor(3, 0.1);
 MotorController motor;
-int cells = 0;
 // BluetoothController bt;
+std::vector<int> nav = {0,1,1,0,-1,0,-1,0,0};
+int cells = 0;
 
 void setup() {
     Serial.begin(115200);
@@ -23,7 +26,7 @@ void setup() {
     digitalWrite(LEDG, HIGH);
     digitalWrite(LEDB, HIGH);
 
-    while (!Serial) delay(50);
+    // while (!Serial) delay(50);
     Serial.println("Initializing...");
 
     // BLUE: SETTING UP
@@ -48,40 +51,30 @@ void setup() {
     // mode button
     pinMode(BUTTON, INPUT);
     Serial.println("Finished initializing pins.");
-
     sensor.init();
     Serial.println("Finished initializing sensors.");
-
-    // motor.init();
-    // Serial.println("Finished initializing motors.");
-
+    motor.init();
+    Serial.println("Finished initializing motors.");
     // bt_setup();
     // Serial.println("Finished initializing bluetooth.");
 
-    if (!IMU.begin()) {
-        Serial.println("Failed to initialize IMU!");
-        while (1);
-    }
-
-    delay(500);
-
+    // calibrating
     Serial.println("Calibrating IMU...");
 
     Serial.println(sensor.calibrate());
+    sensor.resetWallBase();
 
     Serial.println("Finished calibrating IMU");
 
-    delay(2000);
     // GREEN: DONE SET UP
     digitalWrite(LEDR, HIGH);
     digitalWrite(LEDG, LOW);
     digitalWrite(LEDB, HIGH);
 
     // bt.init();
-    Serial.println("Finished initializing bluetooth.");
+    //Serial.println("Finished initializing bluetooth.");
 
     //TODO make based on when switch flipped
-    sensor.resetWallBase();
 }
 
 void linearmotor_test() {
@@ -181,8 +174,8 @@ std::array<bool, 3> readCurrentWalls() {
     // Example logic to generate boolean values
     sensor.read();
     sensor.push();
-    bool L = (sensor.getLLs() > .75*sensor.getBaseL());
-    bool F = (sensor.getLFs() + sensor.getRFs() >  450); //TODO
+    bool L = (sensor.getLLs() > .85*sensor.getBaseL());
+    bool F = (sensor.getLFs() + sensor.getRFs() >  .65*(sensor.getLFCut() + sensor.getRFCut())); //TODO
     bool R = (sensor.getRRs() > .75*sensor.getBaseR());
     return {L,F,R};
 }
@@ -196,12 +189,14 @@ bool controlMaze() {
     double l = motor.getEncL();
     double r = motor.getEncR();
     double L = motor.getTargetL();
-    if (l < L) {
+    sensor.read();
+    sensor.push();
+    if (l < L && (l < .85*L || sensor.getLFs() + sensor.getRFs() >  .95*(sensor.getLFCut() + sensor.getRFCut()))) {
+        // only drive if l < L and it's not too close to the wall beyond 70% of the way to the next
         // motor differential
         double diffEnc = l - r;
         // wall differential
-        sensor.read();
-        sensor.push();
+
         float diffLWall = sensor.getLLs()-sensor.getBaseL();
         float diffRWall = sensor.getRRs()-sensor.getBaseR();
 
@@ -270,7 +265,7 @@ void turnDeg(double deg) { // positive = CCW
     double prefact = -1;
     if (deg < 0) {prefact = 1;}
     motor.setSpeed(turn_speed*prefact,turn_speed*prefact*-1);
-    while (abs(angle) < abs(deg*.7)) {
+    while (abs(angle) < abs(deg*.5)) { // TODO figure out why angle fucked
         sensor.readIMU();
         long int curr_time = micros();
         angle += (float)(.000001)*sensor.getGz()*(curr_time-hold_time);
@@ -284,11 +279,11 @@ void loop() {
     // linear_motor_test();
     // <\OLDCODE>
 
-    //full sensor printout dump
+    //full IR sensor printout dump
     // sensor.read();
     // sensor.push();
     // sensor.readIMU();
-    // Serial.print(sensor.dumpString());
+    // Serial.print(sensor.dumpIRString());
     // motor.read();
     // Serial.print(",");
     // Serial.print(motor.getEncL());
@@ -304,24 +299,37 @@ void loop() {
     // delay(100);
 
     // driving
-
     if (!motor.isInMotion()) {
-        motor.driveStraight(15, 50);
+        motor.driveStraight(14, 50); // TODO FIGURE OUT WHY DISTANCE FUCKED
+        motor.setSpeed(motor.getMinSpeed()*1.1,motor.getMinSpeed()*1.1);
     }
     // workflow:
     if (controlMaze()) {
-        delay(1000);
-        cells++;
+        delay(500);
         // dump walls
         std::array<bool,3> currentWalls = readCurrentWalls();
-        for (bool b : currentWalls) {
-            Serial.print(b);
+        for (int i = 0; i < 3; i ++) {
+            Serial.print(currentWalls[i]);
             Serial.print(",");
         }
         Serial.println();
-        if (cells == 3) {
-            turnDeg(-90);
+        //autonav
+        if (!currentWalls[0]) {
+            turnDeg(90); // left
+            delay(250);
+        } else if (!currentWalls[2]) {
+            turnDeg(-90); // right
+            delay(250);
         }
+        //preset nav
+        // if (nav[cells] == 1) { //right
+        //     turnDeg(-90);
+        //     delay(250);
+        // } else if (nav[cells] == -1) {
+        //     turnDeg(90);
+        //     delay(250);
+        // }
+        // cells++;
     }
 
 

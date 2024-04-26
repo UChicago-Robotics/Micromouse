@@ -20,8 +20,8 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->pitch = 0;
     this->LL_cutoff = 5; // TODO cutoff for missing wall
     this->RR_cutoff = 5;
-    this->RF_cutoff = 0;
-    this->LF_cutoff = 0;
+    this->RF_cutoff = 300;
+    this->LF_cutoff = 200;
     this->LL_coeff = .05; // weighting of wall dist vs encoder diff
     this->RR_coeff = .05;
     this->RF_coeff = .1;
@@ -241,9 +241,13 @@ void SensorController::readIMU() {
 void SensorController::readFilterIMU() {
     this->readIMU();
 }
-String SensorController::dumpString() {
-    // LFs,LLs,RRs,RFs,ax,ay,az,gx,gy,gz with 2 decimals of precision
+String SensorController::dumpIMUString() {
+    // dt,ax,ay,az,gx,gy,gz with 2 decimals of precision
     return String(this->dt) + "\t a:" + String(this->ax,2) + "," + String(this->ay,2) + "," + String(this->az,2) + "\t g:" + String(this->gx,2) + "," + String(this->gy,2) + "," + String(this->gz,2) + "\t heading: " + String(this->mahony.roll * 57.29578f) + "," + String(this->mahony.pitch * 57.29578f) + "," + String(this->mahony.yaw * 57.29578f + 180.0f);
+}
+String SensorController::dumpIRString() {
+    // LFs,LLs,RRs,RFs, with 2 decimals of precision
+    return String(this->dt) + "\t IR:" + String(this->LFs,2) + "," + String(this->LLs,2) + "," + String(this->RRs,2) + "," + String(this->RFs);
 }
 
 String SensorController::calibrate() {
@@ -271,11 +275,12 @@ void SensorController::resetWallBase() {
     // calibrates the "center values" of the left and right sensors based on current walls
     this->read();
     this->push();
+    this->read();
+    this->push();
+    this->read();
+    this->push();
     this->LL_base = this->LLs;
     this->RR_base = this->RRs;
-    Serial.print(this->LL_base);
-    Serial.print(" ");
-    Serial.println(this->RR_base);
 }
 void SensorController::setBaseL(float l) {
     this->LL_base = l;
@@ -321,5 +326,8 @@ float SensorController::getAz() {
 }
 
 float SensorController::getGz(){
-    return this->gz-this->Gz_offset;
+    return this->gz;
+}
+float SensorController::getYaw() {
+    return this->mahony.yaw;
 }

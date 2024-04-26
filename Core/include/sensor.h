@@ -6,7 +6,8 @@
 #define SENSOR_H
 
 class SensorController {
-    private:
+    public:
+        Mahony mahony;
         // quaternion q_est;
         int** sensorHistory;  // 2D array for sensor history
         int L;                // Length of each list in sensor history
@@ -18,20 +19,15 @@ class SensorController {
         float LL_base, RR_base;
         float LL_cutoff, RR_cutoff, LF_cutoff, RF_cutoff; // cutoff for missing wall ("__ Wall absent")
         float LL_coeff, RR_coeff, LF_coeff, RF_coeff;
-        float Gz_offset = 0;    float mx, my, mz;
-
-    float gx0, gy0, gz0;
-    float ax0, ay0, az0;
-    float mx0, my0, mz0;
-    unsigned long lastReadingTime;
-    float dt;
-    float roll, pitch, yaw;
-
-    bool calibrated = false;
-
-    public:
-        Mahony mahony;
-    SensorController(int L_val, double lambda_val);
+        float Gz_offset = 0;
+        float mx, my, mz;
+        float gx0, gy0, gz0;
+        float ax0, ay0, az0;
+        float mx0, my0, mz0;
+        unsigned long lastReadingTime;
+        float dt;
+        bool calibrated = false;
+        SensorController(int L_val, double lambda_val);
         void init();
         void allOn();
         void allOff();
@@ -57,7 +53,8 @@ class SensorController {
         float getRoll();
         float getPitch();
         float getYaw();
-        String dumpString();
+        String dumpIMUString();
+        String dumpIRString();
         void resetWallBase();
         void setBaseL(float l);
         void setBaseR(float r);
@@ -72,6 +69,7 @@ class SensorController {
         float getLFCoeff();
         float getRFCoeff();
         float getAz();
-        float getGz();    String calibrate();
+        float getGz();
+        String calibrate();
 };
 #endif
