@@ -1,6 +1,7 @@
 #include "Arduino.h"
 #include "const.h"
 // #include "madgwickFilter.h"
+#include "MahonyAHRS.h"
 #ifndef SENSOR_H
 #define SENSOR_H
 
@@ -17,9 +18,20 @@ class SensorController {
         float LL_base, RR_base;
         float LL_cutoff, RR_cutoff, LF_cutoff, RF_cutoff; // cutoff for missing wall ("__ Wall absent")
         float LL_coeff, RR_coeff, LF_coeff, RF_coeff;
-        float Gz_offset = 0;
+        float Gz_offset = 0;    float mx, my, mz;
+
+    float gx0, gy0, gz0;
+    float ax0, ay0, az0;
+    float mx0, my0, mz0;
+    unsigned long lastReadingTime;
+    float dt;
+    float roll, pitch, yaw;
+
+    bool calibrated = false;
+
     public:
-        SensorController(int L_val, double lambda_val);
+        Mahony mahony;
+    SensorController(int L_val, double lambda_val);
         void init();
         void allOn();
         void allOff();
@@ -60,6 +72,6 @@ class SensorController {
         float getLFCoeff();
         float getRFCoeff();
         float getAz();
-        float getGz();
+        float getGz();    String calibrate();
 };
 #endif

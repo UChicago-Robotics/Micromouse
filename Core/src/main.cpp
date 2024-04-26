@@ -1,14 +1,16 @@
 #include "Arduino.h"
 #include "ArduinoBLE.h"
+#include "Arduino_BMI270_BMM150.h"
 #include "Wire.h"
+#include "comm.h"
 #include "const.h"
+#include "motor.h"
+#include "pid.h"
 #include "sensor.h"
 #include "pid.h"
 #include "motor.h"
 #include "comm.h"
-// #include "madgwickFilter.h"
-
-SensorController sensor(3,.1);
+SensorController sensor(3, 0.1);
 MotorController motor;
 int cells = 0;
 // BluetoothController bt;
@@ -16,7 +18,18 @@ int cells = 0;
 void setup() {
     Serial.begin(115200);
 
+    // RED: BEFORE SET UP
+    digitalWrite(LEDR, LOW);
+    digitalWrite(LEDG, HIGH);
+    digitalWrite(LEDB, HIGH);
+
+    while (!Serial) delay(50);
     Serial.println("Initializing...");
+
+    // BLUE: SETTING UP
+    digitalWrite(LEDR, HIGH);
+    digitalWrite(LEDG, HIGH);
+    digitalWrite(LEDB, LOW);
 
     // Motors
     pinMode(D2, OUTPUT);
@@ -39,8 +52,30 @@ void setup() {
     sensor.init();
     Serial.println("Finished initializing sensors.");
 
-    motor.init();
-    Serial.println("Finished initializing motors.");
+    // motor.init();
+    // Serial.println("Finished initializing motors.");
+
+    // bt_setup();
+    // Serial.println("Finished initializing bluetooth.");
+
+    if (!IMU.begin()) {
+        Serial.println("Failed to initialize IMU!");
+        while (1);
+    }
+
+    delay(500);
+
+    Serial.println("Calibrating IMU...");
+
+    Serial.println(sensor.calibrate());
+
+    Serial.println("Finished calibrating IMU");
+
+    delay(2000);
+    // GREEN: DONE SET UP
+    digitalWrite(LEDR, HIGH);
+    digitalWrite(LEDG, LOW);
+    digitalWrite(LEDB, HIGH);
 
     // bt.init();
     Serial.println("Finished initializing bluetooth.");

@@ -2,6 +2,7 @@
 #include "Arduino.h"
 #include "Arduino_BMI270_BMM150.h"
 #include "stdlib.h"
+#include "MahonyAHRS.h"
 
 SensorController::SensorController(int L_val, double lambda_val) {
     this->L = L_val;
@@ -28,6 +29,8 @@ SensorController::SensorController(int L_val, double lambda_val) {
 
 
     this->sensorHistory = new int*[4];
+    this->lastReadingTime = 0;
+    this->dt = 0.02;
     for (int i = 0; i < 4; ++i) {
         this->sensorHistory[i] = new int[L];
         for (int j = 0; j < L; ++j) {
@@ -42,6 +45,15 @@ void SensorController::init() {
         // If the IMU fails to initialize, enter an infinite loop
         while (1) Serial.println("Can't start IMU.");
     }
+    Serial.print("Accelerometer sample rate = ");
+    Serial.print(IMU.accelerationSampleRate());
+    Serial.println(" Hz");
+
+    Serial.print("Gyroscope sample rate = ");
+    Serial.print(IMU.gyroscopeSampleRate());
+    Serial.println(" Hz");
+
+    this->lastReadingTime = millis();
     allOff();
     this->readIMU();
     this->Gz_offset = this->gz;
@@ -194,19 +206,65 @@ void SensorController::push() {
 }
 
 void SensorController::readIMU() {
-    IMU.readAcceleration(this->ax, this->ay, this->az);
-    IMU.readGyroscope(this->gx, this->gy, this->gz);
+    if (IMU.accelerationAvailable()) {
+        IMU.readAcceleration(this->ax, this->ay, this->az);
+    }
+    
+    if (IMU.gyroscopeAvailable()) {
+        IMU.readGyroscope(this->gx, this->gy, this->gz);
+    }
+    
+    if (IMU.magneticFieldAvailable()) {
+        IMU.readMagneticField(this->mx, this->my, this->mz);
+    }
+
+    unsigned long temp = millis();
+    this->dt = (float)(temp - this->lastReadingTime)/1000;
+    this->lastReadingTime = temp;
+
+    if (this->calibrated) {
+        this->ax -= this->ax0;
+        this->ay -= this->ay0;
+        this->gx -= this->gx0;
+        this->gy -= this->gy0;
+        this->gz -= this->gz0;
+        if (fabs(this->gx) < 0.3) this->gx = 0;
+        if (fabs(this->gy) < 0.3) this->gy = 0;
+        if (fabs(this->gz) < 0.3) this->gz = 0;
+    }
+    this->mahony.invSampleFreq = this->dt;
+    this->mahony.updateIMU(gx, gy, gz, ax, ay, az);
+    this->mahony.computeAngles();
     this->gz -= this->Gz_offset;
 }
+
 void SensorController::readFilterIMU() {
     this->readIMU();
 }
-
-
-
 String SensorController::dumpString() {
     // LFs,LLs,RRs,RFs,ax,ay,az,gx,gy,gz with 2 decimals of precision
-    return String(this->LFs,2) + "," + String(this->LLs,2) + "," + String(this->RRs,2) + "," + String(this->RFs,2) + "," + String(this->ax,2) + "," + String(this->ay,2) + "," + String(this->az,2) + "," + String(this->gx,2) + "," + String(this->gy,2) + "," + String(this->gz,2);
+    return String(this->dt) + "\t a:" + String(this->ax,2) + "," + String(this->ay,2) + "," + String(this->az,2) + "\t g:" + String(this->gx,2) + "," + String(this->gy,2) + "," + String(this->gz,2) + "\t heading: " + String(this->mahony.roll * 57.29578f) + "," + String(this->mahony.pitch * 57.29578f) + "," + String(this->mahony.yaw * 57.29578f + 180.0f);
+}
+
+String SensorController::calibrate() {
+    int N = 50;
+    for (int i = 0;i< N;++i) this->readIMU();
+    delay(500);
+    for (int i = 0; i < N; ++i) {
+        this->readIMU();
+        this->ax0 += this->ax/N;
+        this->ay0 += this->ay/N;
+        this->az0 += this->az/N;
+        this->gx0 += this->gx/N;
+        this->gy0 += this->gy/N;
+        this->gz0 += this->gz/N;
+        this->mx0 += this->mx/N;
+        this->my0 += this->my/N;
+        this->mz0 += this->mz/N;
+        delay(30);
+    }
+    this->calibrated = true;
+    return String(this->ax0,2) + "," + String(this->ay0,2) + "," + String(this->az0,2) + "," + String(this->gx0,2) + "," + String(this->gy0,2) + "," + String(this->gz0,2) + "," + String(this->mx0,2) + "," + String(this->my0,2) + "," + String(this->mz0,2);
 }
 
 void SensorController::resetWallBase() {
