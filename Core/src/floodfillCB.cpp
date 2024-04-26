@@ -155,6 +155,12 @@ bool done() {
     int h = MAZE_SIZE/2;
     return (r == h || r == h-1) && (c == h || c == h-1);
 }
+
+/**
+ * @brief 
+ * 
+ * @param nav 
+ */
 void drivenav(std::vector<int> nav) { // nav is vector of -1,0,1,2 for left+straight straight right+straight, 2 turn around + drive
     // TODO arduino implementation as actual driving
     
@@ -169,9 +175,23 @@ void drivenav(std::vector<int> nav) { // nav is vector of -1,0,1,2 for left+stra
     };
 }
 
-// <dijkstra navigation section>
+/**
+ * @brief returns the 2d-position from the 1d-index
+ */
+pair<int, int> get2dpos(int index) {
+    return {(int) (index / MAZE_SIZE), index % MAZE_SIZE};
+}
+
+/**
+ * @brief returns true if 2 cells are adjacent and the connection between 
+ * them is known, else false
+ * 
+ * @param i1 
+ * @param i2 
+ * @return true 
+ * @return false 
+ */
 bool connected(int i1, int i2) {
-    // returns true (1) if 2 cells are adjacent and the connection between them is known, else false
     int r1 = i1/MAZE_SIZE;
     int c1 = i1%MAZE_SIZE;
     int r2 = i2/MAZE_SIZE;
@@ -180,6 +200,13 @@ bool connected(int i1, int i2) {
     return !((abs(r1-r2) > 0) ? memH_maze[index(min(r1,r2),c1)] : memV_maze[index(r1,min(c1,c2))]);
 }
 
+/**
+ * @brief returns the min distance
+ * 
+ * @param dist 
+ * @param sptSet 
+ * @return int 
+ */
 int minDistance(const std::vector<int>& dist, const std::vector<bool>& sptSet) {
     int min = 257, min_index;
     for (int v = 0; v < MAZE_SIZE*MAZE_SIZE; ++v) {
@@ -193,7 +220,14 @@ int minDistance(const std::vector<int>& dist, const std::vector<bool>& sptSet) {
     }
     return min_index;
 }
-
+/**
+ * @brief Helper function to "unpack" the result of dijkstra's into a list of
+ * indices. 
+ * 
+ * @param parent 
+ * @param dest 
+ * @return std::vector<int> path as list of cell indecies
+ */
 std::vector<int> getPath(const std::vector<int>& parent, int dest) {
     // i've heard microcontrollers hate recursive stack pressure, but i'm too lazy to fix
     std::vector<int> path;
@@ -204,6 +238,16 @@ std::vector<int> getPath(const std::vector<int>& parent, int dest) {
     return path;
 }
 
+/**
+ * @brief Finds the shortest path between two nodes, returns the result as a list
+ * of 1d-indices
+ * 
+ * @param r1 
+ * @param c1 
+ * @param r2 
+ * @param c2 
+ * @return std::vector<int> 
+ */
 std::vector<int> dijkstra(int r1, int c1, int r2, int c2) {
     int src = index(r1,c1);
     int dest = index(r2,c2);
@@ -224,12 +268,18 @@ std::vector<int> dijkstra(int r1, int c1, int r2, int c2) {
             }
         }
     }
+
     return getPath(parent, dest);
 }
 
-// <\dijkstra navigation section>
+/**
+ * @brief converts list of indices (path ie 1,2,3,4,12) to instructions to get from A to B 
+ * ex: (0,0,0,1) --> (straight straight straight right+straight)
+ * 
+ * @param path 1-d array representing a path from node a --> b
+ * @return std::vector<int> 
+ */
 std::vector<int> path2nav(std::vector<int> path) {
-    // converts list of indices (path ie 1,2,3,4,12) to instructions to get from A to B (0,0,0,1) (straight straight straight right+straight)
     std::vector<int> nav = {};
     for (int i = 0; i < path.size()-1; i++) {
         int move = -100;
@@ -251,18 +301,36 @@ std::vector<int> path2nav(std::vector<int> path) {
     return nav;
 }
 
-std::vector<int> floodfill(std::array<bool,3> visuals) {
-  //TODO WRITE FLOODFILL ALGORITHM
-  int target_r; // wherever going next
+/**
+ * @brief Floodfill algorithm, finds the nearest unvisited node. If there are 2 nodes
+ * that are equidistant, 
+ * If there's a fork, choose the node that's closer to the center.
+ * 
+ * @param visuals 
+ * @return std::vector<int> 
+ */
+std::vector<int> floodfill() {
+  int target_r; 
   int target_c;
+
+
+    std::array<bool,3> walls = sense(); // read walls around
+    sense_update(walls); // update memory to account for new walls
+    std::vector<int> nav = floodfill(walls); // returns navigation to next cell
+            // could be adjacent or could use dijkstra to retrace
+ 
+
   return path2nav(dijkstra(r,c,target_r,target_c));
 }
 
-
-
-
+/**
+ * @brief emulator for the mouse sensing the physical walls in the current direction
+ * RELATIVE TO THE MOUSE.
+ * 
+ * @return std::array<bool,3> : a boolean representing the walls to the 
+ * current left, center, right
+ */
 std::array<bool,3> sense() {
-    // emulator for the mouse sensing the physical walls
 
     // I'm a lazy piece of shit, so I'm hardcoding this and it's nasty af --> but it works
     std::array<int,3> rs = {0,0,0};
@@ -309,8 +377,13 @@ std::array<bool,3> sense() {
 
 }
 
+/**
+ * @brief updates memory array based on observation at a point. Memory is always
+ * up to date.
+ * 
+ * @param w 
+ */
 void sense_update(std::array<bool,3> w) {
-    // updates memory array based on observation at a point
     mem_maze[index(r,c)] = 0;
     std::array<int,3> rs = {0,0,0};
     std::array<int,3> cs = {0,0,0};
