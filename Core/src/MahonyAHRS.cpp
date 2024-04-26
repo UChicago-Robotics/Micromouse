@@ -27,7 +27,8 @@
 //-------------------------------------------------------------------------------------------
 // Definitions
 
-#define twoKpDef	(2.0f * 0.3f)	// 2 * proportional gain
+#define DEFAULT_SAMPLE_FREQ	512.0f	// sample frequency in Hz
+#define twoKpDef	(2.0f * 0.5f)	// 2 * proportional gain
 #define twoKiDef	(2.0f * 0.0f)	// 2 * integral gain
 
 
@@ -49,6 +50,7 @@ Mahony::Mahony()
 	integralFBy = 0.0f;
 	integralFBz = 0.0f;
 	anglesComputed = 0;
+	invSampleFreq = 1.0f / DEFAULT_SAMPLE_FREQ;
 }
 
 void Mahony::update(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz)
