@@ -15,9 +15,6 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RFs = 0;
     this->LFs = 0;
     this->LLs = 0;
-    this->roll = 0;
-    this->yaw = 0;
-    this->pitch = 0;
     this->LL_cutoff = 5; // TODO cutoff for missing wall
     this->RR_cutoff = 5;
     this->RF_cutoff = 300;
@@ -56,9 +53,6 @@ void SensorController::init() {
     this->lastReadingTime = millis();
     allOff();
     this->readIMU();
-    this->Gz_offset = this->gz;
-    Serial.print("Gz Offset: ");
-    Serial.println(this->Gz_offset);
 }
 void SensorController::allOn() {
     digitalWrite(RF_IRo, HIGH);
@@ -235,22 +229,18 @@ void SensorController::readIMU() {
     this->mahony.invSampleFreq = this->dt;
     this->mahony.updateIMU(gx, gy, gz, ax, ay, az);
     this->mahony.computeAngles();
-    this->gz -= this->Gz_offset;
 }
 
-void SensorController::readFilterIMU() {
-    this->readIMU();
-}
 String SensorController::dumpIMUString() {
     // dt,ax,ay,az,gx,gy,gz with 2 decimals of precision
-    return String(this->dt) + "\t a:" + String(this->ax,2) + "," + String(this->ay,2) + "," + String(this->az,2) + "\t g:" + String(this->gx,2) + "," + String(this->gy,2) + "," + String(this->gz,2) + "\t heading: " + String(this->mahony.roll * 57.29578f) + "," + String(this->mahony.pitch * 57.29578f) + "," + String(this->mahony.yaw * 57.29578f + 180.0f);
+    return String(this->dt) + "\t a:" + String(this->ax,2) + "," + String(this->ay,2) + "," + String(this->az,2) + "\t g:" + String(this->gx,2) + "," + String(this->gy,2) + "," + String(this->gz,2) + "\t heading: " + String(this->mahony.roll * 57.29578f) + "," + String(this->mahony.pitch * 57.29578f) + "," + String(this->mahony.yaw * 57.29578f);
 }
 String SensorController::dumpIRString() {
     // LFs,LLs,RRs,RFs, with 2 decimals of precision
     return String(this->dt) + "\t IR:" + String(this->LFs,2) + "," + String(this->LLs,2) + "," + String(this->RRs,2) + "," + String(this->RFs);
 }
 
-String SensorController::calibrate() {
+void SensorController::calibrate() {
     int N = 50;
     for (int i = 0;i< N;++i) this->readIMU();
     delay(500);
@@ -268,7 +258,7 @@ String SensorController::calibrate() {
         delay(30);
     }
     this->calibrated = true;
-    return String(this->ax0,2) + "," + String(this->ay0,2) + "," + String(this->az0,2) + "," + String(this->gx0,2) + "," + String(this->gy0,2) + "," + String(this->gz0,2) + "," + String(this->mx0,2) + "," + String(this->my0,2) + "," + String(this->mz0,2);
+    Serial.println(String(this->ax0,2) + "," + String(this->ay0,2) + "," + String(this->az0,2) + "," + String(this->gx0,2) + "," + String(this->gy0,2) + "," + String(this->gz0,2) + "," + String(this->mx0,2) + "," + String(this->my0,2) + "," + String(this->mz0,2));
 }
 
 void SensorController::resetWallBase() {
@@ -328,6 +318,7 @@ float SensorController::getAz() {
 float SensorController::getGz(){
     return this->gz;
 }
+
 float SensorController::getYaw() {
     return this->mahony.yaw;
 }

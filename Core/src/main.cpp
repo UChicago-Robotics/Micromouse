@@ -11,13 +11,14 @@
 #include "motor.h"
 #include "comm.h"
 #include <vector>
+#define DEBUGGING true
 
 SensorController sensor(3, 0.1);
 MotorController motor;
 // BluetoothController bt;
 std::vector<int> nav = {0,1,1,0,-1,0,-1,0,0};
 int cells = 0;
-
+int last = 0;
 void setup() {
     Serial.begin(115200);
 
@@ -26,7 +27,7 @@ void setup() {
     digitalWrite(LEDG, HIGH);
     digitalWrite(LEDB, HIGH);
 
-    // while (!Serial) delay(50);
+    while (DEBUGGING && !Serial) delay(50);
     Serial.println("Initializing...");
 
     // BLUE: SETTING UP
@@ -61,7 +62,7 @@ void setup() {
     // calibrating
     Serial.println("Calibrating IMU...");
 
-    Serial.println(sensor.calibrate());
+    sensor.calibrate();
     sensor.resetWallBase();
 
     Serial.println("Finished calibrating IMU");
@@ -95,80 +96,6 @@ void linearmotor_test() {
         delay(500);
     }
 }
-
-/*
-void drive_straight(double dist, double defspeed) {
-    Serial.println("STRAIGHT");
-    wheelPID.resetI();
-    motor.resetEncs();
-    double L, R, diff = 0;
-    long int t = millis();
-    while (motor.getEncL() < dist) {
-        motor.read();
-        L = motor.getEncL();
-        R = motor.getEncR();
-        diff = L - R;
-        long int ct = millis();
-        int dt = ct - t + 1;
-        double op = wheelPID.feedback(diff, dt);
-        motor.setSpeed(defspeed, op + defspeed);
-        t = ct;
-        Serial.print(ct);
-        Serial.print(",");
-        Serial.print(dt);
-        Serial.print(",");
-        Serial.print(L);
-        Serial.print(",");
-        Serial.print(R);
-        Serial.print(",");
-        Serial.print(diff);
-        Serial.print(",");
-        Serial.println(op);
-    }
-    motor.setSpeed(0, 0);
-}
-
-*/
-
-/*
-void turn(double angle, double angular) {
-    // angle -pi to pi CCW
-    Serial.println("TURN");
-    wheelPID.resetI();
-    motor.resetEncs();
-    double L, R, diff = 0;
-    long int t = millis();
-    double angle_dist = BASE_WIDTH / 2 * angle;
-    int flip = 1;
-    if (angle < 0) {
-        flip = -1;
-    }
-
-    while (abs(motor.getEncL()) < abs(angle_dist)) {
-        motor.read();
-        L = motor.getEncL();
-        R = motor.getEncR();
-        diff = L + R;
-        long int ct = millis();
-        int dt = ct - t + 1;
-        double op = wheelPID.feedback(diff, dt);
-        motor.setSpeed(-angular * flip, -op + angular * flip);
-        t = ct;
-        Serial.print(ct);
-        Serial.print(",");
-        Serial.print(dt);
-        Serial.print(",");
-        Serial.print(L);
-        Serial.print(",");
-        Serial.print(R);
-        Serial.print(",");
-        Serial.print(diff);
-        Serial.print(",");
-        Serial.println(op);
-    }
-    motor.setSpeed(0, 0);
-}
-*/
 
 std::array<bool, 3> readCurrentWalls() {
     // Example logic to generate boolean values
@@ -275,10 +202,6 @@ void turnDeg(double deg) { // positive = CCW
 }
 
 void loop() {
-    // <OLDCODE>
-    // linear_motor_test();
-    // <\OLDCODE>
-
     //full IR sensor printout dump
     // sensor.read();
     // sensor.push();
@@ -299,6 +222,9 @@ void loop() {
     // delay(100);
 
     // driving
+
+    /*
+    
     if (!motor.isInMotion()) {
         motor.driveStraight(14, 50); // TODO FIGURE OUT WHY DISTANCE FUCKED
         motor.setSpeed(motor.getMinSpeed()*1.1,motor.getMinSpeed()*1.1);
@@ -333,6 +259,14 @@ void loop() {
     }
 
 
-
-    // bt.publish(String("millis"));
+    */
+    sensor.readIMU();
+    // Serial.println(sensor.dumpIMUString());
+    motor.yaw = sensor.mahony.yaw * 57.29578f;
+    int currTime = millis();
+    if (!motor.isInMotion() & currTime - last > 5000) {
+        motor.turnToYaw(90); // TODO FIGURE OUT WHY DISTANCE FUCKED
+    }
+    motor.control();
+    // bt_loop(String(millis()));
 }
