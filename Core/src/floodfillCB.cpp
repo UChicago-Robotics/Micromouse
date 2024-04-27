@@ -7,7 +7,7 @@
 #include <ArduinoBLE.h>
 #include <Arduino_LSM9DS1.h>*/
 
-#include <stdlib.h>     /* calloc, exit, free */
+#include <stdlib.h>
 #include <iostream>
 #include <iomanip>
 #include <stdio.h>
@@ -17,9 +17,13 @@
 #include <queue>
 #include <vector>
 #include <unordered_set>
+#include <queue>
 #include <stdint.h>
 #include <stdexcept>
 using namespace std;
+
+typedef pair<int, int> ipair;
+typedef vector<pair<int, int>> vpair;
 
 //#define empty_f 0
 #define WALL 1
@@ -178,8 +182,17 @@ void drivenav(std::vector<int> nav) { // nav is vector of -1,0,1,2 for left+stra
 /**
  * @brief returns the 2d-position from the 1d-index
  */
-pair<int, int> get2dpos(int index) {
+pair<int, int> get2Dpos(int index) {
     return {(int) (index / MAZE_SIZE), index % MAZE_SIZE};
+}
+/**
+ * @brief get the 1d-index from 2d pos
+ * 
+ * @param coord 
+ * @return int 
+ */
+int get1Dpos(ipair c) {
+    return index(c.first, c.second);
 }
 
 /**
@@ -239,8 +252,45 @@ std::vector<int> getPath(const std::vector<int>& parent, int dest) {
 }
 
 /**
+ * @brief Get adjacent visitable nodes from position.
+ * 
+ * @param pos 
+ * @param only_visited only return nodes that have been visited
+ * @return vector<ipair> 
+ */
+vector<ipair> get_adj(ipair pos, bool only_visited = false) {
+    int r = pos.first, c = pos.second;
+    vector<ipair> adj;
+
+    // check adjacent nodes that don't have blocking walls
+    if (memH_maze[index(r-1, c)] != WALL) adj.push_back({r-1, c });
+    if (memH_maze[index(r, c)] != WALL) adj.push_back({r+1, c});
+    
+    if (memV_maze[index(r, c-1)] != WALL) adj.push_back({r, c-1});
+    if (memV_maze[index(r, c)] != WALL) adj.push_back({r, c+1});
+    
+    int visited_bitmask = !(only_visited << 31);
+    vector<ipair> res;
+
+    // filter out adj nodes with invalid coords
+    for (auto a : adj) {
+        if (
+            0 <= a.first 
+            && 0 <= a.second 
+            && a.first < MAZE_SIZE 
+            && a.second < MAZE_SIZE
+            && ((mem_maze[index(a.first, a.second)] == VISITED) | visited_bitmask) // possible bug
+        ) {
+            res.push_back(a);
+        }
+    }
+    
+    return res;
+}
+
+/**
  * @brief Finds the shortest path between two nodes, returns the result as a list
- * of 1d-indices
+ * of 1d-indices. Note that it can only travel on visited nodes. 
  * 
  * @param r1 
  * @param c1 
@@ -248,28 +298,47 @@ std::vector<int> getPath(const std::vector<int>& parent, int dest) {
  * @param c2 
  * @return std::vector<int> 
  */
-std::vector<int> dijkstra(int r1, int c1, int r2, int c2) {
-    int src = index(r1,c1);
-    int dest = index(r2,c2);
-    std::vector<int> dist(MAZE_SIZE*MAZE_SIZE, 257);
-    std::vector<bool> sptSet(MAZE_SIZE*MAZE_SIZE, false);
-    std::vector<int> parent(MAZE_SIZE*MAZE_SIZE, -1);
-    dist[src] = 0;
-    for (int count = 0; count < MAZE_SIZE*MAZE_SIZE - 1; ++count) {
-        int u = minDistance(dist, sptSet);
-        sptSet[u] = true;
-        for (int v = 0; v < MAZE_SIZE*MAZE_SIZE; ++v) {
-            if (mem_maze[v] == UNVISITED) {
-                continue;
-            }
-            if (!sptSet[v] && connected(u, v) && dist[u] != 257 && dist[u] + connected(u, v) < dist[v]) {
-                dist[v] = dist[u] + connected(u, v);
-                parent[v] = u;
+vector<int> shortest_path(int r1, int c1, int r2, int c2) {
+    int n = MAZE_SIZE*MAZE_SIZE;
+
+    // we use the 1d index of each node because c++ pairs aren't hashable lol
+    unordered_set<int> visited;
+    vector<int> prev(n, -1);
+    vector<int> dist(n, -1);
+
+    vector<int> cur_layer = {index(r1, c1)};
+    visited.insert(index(r1, c1));
+    dist[index(r1, c1)] = 0;
+    int cdist = 0;
+
+    while (!cur_layer.empty()) {
+        vector<int> next_layer;
+        cdist++;
+
+        for (int cur: cur_layer) {
+            for (ipair adj : get_adj(get2Dpos(cur), false)) {
+                int adj_index = get1Dpos(adj);
+
+                if (visited.count(adj_index) == 0) {
+                    next_layer.push_back(adj_index);
+                    prev[adj_index] = cur;
+                    dist[adj_index] = cdist;
+                    visited.insert(adj_index);
+                }
             }
         }
+
+        cur_layer = next_layer;
     }
 
-    return getPath(parent, dest);
+    for (int i = 0; i < MAZE_SIZE; i++) {
+        for (int j = 0; j < MAZE_SIZE; j++) {
+            cout << dist[index(i,j)] << " ";
+        }
+        cout << endl;
+    }
+
+    return {};
 }
 
 /**
@@ -303,24 +372,42 @@ std::vector<int> path2nav(std::vector<int> path) {
 
 /**
  * @brief Floodfill algorithm, finds the nearest unvisited node. If there are 2 nodes
- * that are equidistant, 
- * If there's a fork, choose the node that's closer to the center.
+ * that are equidistant, we choose the node that's closer to the center.
  * 
- * @param visuals 
+ * @param r
+ * @param c
  * @return std::vector<int> 
  */
-std::vector<int> floodfill() {
-  int target_r; 
-  int target_c;
+std::vector<int> floodfill(int r, int c) {
+    int target_r; 
+    int target_c;
 
+    vector<pair<int, int>> unvisited;
+    vector<pair<int, int>> cur_layer = {{r, c}};
+    // BFS to find nearest unvisited node
+    while (unvisited.empty()) {
+        vpair next_layer;
 
-    std::array<bool,3> walls = sense(); // read walls around
-    sense_update(walls); // update memory to account for new walls
-    std::vector<int> nav = floodfill(walls); // returns navigation to next cell
-            // could be adjacent or could use dijkstra to retrace
- 
+        for (ipair n : cur_layer) {
+            for (auto a : get_adj(n)) {
+                    if (mem_maze[index(a.first, a.second)] == VISITED) {
+                        next_layer.push_back(a);
+                    
+                    // if node is unvisited, add to queue
+                    } else if (mem_maze[index(a.first, a.second)] == UNVISITED) {
+                        unvisited.push_back(a);
+                    }
+                }
+            }
+         cur_layer = next_layer;
+    }
 
-  return path2nav(dijkstra(r,c,target_r,target_c));
+    // TODO: select based on better scheme
+    target_r = unvisited[0].first, target_c = unvisited[0].second;
+    cout << target_r << ", " << target_c << endl;
+    shortest_path(r, c, target_r, target_c);
+    //path2nav(dijkstra(r,c,target_r,target_c));
+    return {};
 }
 
 /**
@@ -331,7 +418,6 @@ std::vector<int> floodfill() {
  * current left, center, right
  */
 std::array<bool,3> sense() {
-
     // I'm a lazy piece of shit, so I'm hardcoding this and it's nasty af --> but it works
     std::array<int,3> rs = {0,0,0};
     std::array<int,3> cs = {0,0,0};
@@ -421,8 +507,6 @@ void sense_update(std::array<bool,3> w) {
 }
 
 int main() {
-    //<example maze>
-    // declare arrs
     for (int i = 0; i < MAZE_SIZE; i++) {
         for (int j = 0; j < MAZE_SIZE; j++) {
             mem_maze[index(i, j)] = UNVISITED;
@@ -437,6 +521,8 @@ int main() {
             memH_maze[index(i,j)] = UNVISITED;
         }
     }
+
+    /*
     print_real_maze();
     print_mem_maze();
     //<\example maze>
@@ -506,16 +592,17 @@ int main() {
     }
     std::cout << std::endl;
     // <\examples of subroutines navigate, sense, done, dijkstra>
+    */
 
 
-    // r and c are global variables corresponding to which cell the mouse is in
-    // <pseudo algorithm>
-    // while (!done()) { // until in center 4 squares
-    //   std::array<bool,3> walls = sense(); // read walls around
-    //   sense_update(walls); // update memory to account for new walls
-    //   std::vector<int> nav = floodfill(walls); // returns navigation to next cell
-            // could be adjacent or could use dijkstra to retrace
-    //   drivenav(nav);
-    // }
-    // <\pseudo algorithm>
+    // for the purpose of testing Dijkstra's, assume maze is known
+    mem_maze = real_maze;
+    memV_maze = realV_maze;
+    memH_maze = realH_maze;
+
+    print_maze(memH_maze, memV_maze, mem_maze);
+
+    shortest_path(0, 0, 1, 1);
+
+
 }
