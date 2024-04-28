@@ -25,6 +25,7 @@ class SensorController {
         float mx0, my0, mz0;
         unsigned long lastReadingTime;
         float dt;
+        long runTime;
         bool calibrated = false;
         SensorController(int L_val, double lambda_val);
         void init();
@@ -49,9 +50,7 @@ class SensorController {
         float getLLs();
         void readIMU();
         void readFilterIMU();
-        float getRoll();
-        float getPitch();
-        float getYaw();
+        float getYawDeg();
         String dumpIMUString();
         String dumpIRString();
         void resetWallBase();

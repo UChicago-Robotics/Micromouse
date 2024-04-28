@@ -15,10 +15,10 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RFs = 0;
     this->LFs = 0;
     this->LLs = 0;
-    this->LL_cutoff = 5; // TODO cutoff for missing wall
+    this->LL_cutoff = 5; // cutoff for missing wall
     this->RR_cutoff = 5;
-    this->RF_cutoff = 300;
-    this->LF_cutoff = 200;
+    this->RF_cutoff = 240;
+    this->LF_cutoff = 185;
     this->LL_coeff = .05; // weighting of wall dist vs encoder diff
     this->RR_coeff = .05;
     this->RF_coeff = .1;
@@ -200,6 +200,7 @@ void SensorController::push() {
 }
 
 void SensorController::readIMU() {
+    long startTime = millis();
     if (IMU.accelerationAvailable()) {
         IMU.readAcceleration(this->ax, this->ay, this->az);
     }
@@ -229,6 +230,7 @@ void SensorController::readIMU() {
     this->mahony.invSampleFreq = this->dt;
     this->mahony.updateIMU(gx, gy, gz, ax, ay, az);
     this->mahony.computeAngles();
+    this->runTime = millis() - startTime;
 }
 
 String SensorController::dumpIMUString() {
@@ -244,6 +246,15 @@ void SensorController::calibrate() {
     int N = 50;
     for (int i = 0;i< N;++i) this->readIMU();
     delay(500);
+    this->ax0 =0;
+    this->ay0 =0;
+    this->az0 =0;
+    this->gx0 =0;
+    this->gy0 =0;
+    this->gz0 =0;
+    this->mx0 =0;
+    this->my0 =0;
+    this->mz0 =0;
     for (int i = 0; i < N; ++i) {
         this->readIMU();
         this->ax0 += this->ax/N;
@@ -319,6 +330,6 @@ float SensorController::getGz(){
     return this->gz;
 }
 
-float SensorController::getYaw() {
-    return this->mahony.yaw;
+float SensorController::getYawDeg() {
+    return this->mahony.yaw * 57.29578f;
 }

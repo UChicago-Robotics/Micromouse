@@ -52,8 +52,16 @@ bool MotorController::isInMotion() {
     return this->inMotion;
 }
 
-void MotorController::setMotion(bool a) {
+bool MotorController::isInTurn() {
+    return this->isTurn;
+}
+
+void MotorController::setInMotion(bool a) {
     this->inMotion = a;
+}
+
+void MotorController::setInTurn(bool a) {
+    this->isTurn = a;
 }
 void MotorController::setBaseSpeed(double bs) {
     this->baseSpeed = bs;
@@ -88,57 +96,33 @@ void MotorController::turnToYaw(int target) {
     this->lastRun = millis();
 }
 
-void MotorController::control() {
-    if (this->inMotion) {
-        // only do things when inMotion
-        if (this->isTurn) {
-            // turning motion
-            Serial.println("TargYaw: " + String(this->targYaw, 2) + "Yaw: " + String(this->yaw, 2));
-            if (fabs(this->targYaw - this->yaw) > 5) {
-                // if still out of tolerance range
-                double diff = fmod((this->targYaw - this->yaw + 720), 360);
-                long int ct = millis();
-                int dt = ct - this->lastRun + 1;
-                double op;
-                if (diff < 180) {
-                    // closer to turn counter clockwise
-                    op = this->turnPID.feedback(diff, dt);
-                    op = max(op, this->turnMinSpeed);
-                    this->setSpeed(-op, op);
-                    Serial.println("counter clockwise, diff: " + String(diff, 2) + "dt: " + String(dt) + "op: " + String(op, 2));
-                } else {
-                    // closer to turn clockwise
-                    op = this->turnPID.feedback(360-diff, dt);
-                    op = max(op, this->turnMinSpeed);
-                    this->setSpeed(op, -op);
-                    Serial.println("clockwise, diff: " + String(diff, 2) + "dt: " + String(dt) + "op: " + String(op, 2));
-                }
-                this->lastRun = ct;
-            } else {
-                this->inMotion = false;
-                this->setSpeed(0, 0);
-            }
-        } else {
-            // driving motion
-            this->read();
-
-            double l = this->getEncL(), r = this->getEncR();
-            if (l < this->targL) {
-                double diff = l - r;
-                long int ct = millis();
-                int dt = ct - this->lastRun + 1;
-                double op = this->wheelPID.feedback(diff, dt);
-                this->setSpeed(this->baseSpeed, this->baseSpeed + op);
-                this->lastRun = ct;
-                Serial.println(String(ct) + "\t" + String(dt) + "\t" + String(l, 2) + "\t" + String(r, 2) + "\t" + String(diff, 2) + "\t" + String(op, 2));
-            } else {
-                this->inMotion = false;
-                this->setSpeed(0, 0);
-            }
-        }
-    }
+float MotorController::getTargetYaw() {
+    return this->targYaw;
 }
 
-double MotorController::PIDfeedback(double diff, double diff_t) {
-    return this->wheelPID.feedback(diff, diff_t);
+double MotorController::getTargetL() {
+    return this->targL;
+}
+
+void MotorController::setTargetYaw(float yawIn) {
+    this->targYaw = yawIn;
+}
+
+double MotorController::wheelPIDfeedback(double diff, double difft) {
+    return this->wheelPID.feedback(diff, difft);
+}
+double MotorController::turnPIDfeedback(double diff, double difft) {
+    return this->turnPID.feedback(diff,difft);
+}
+
+double MotorController::mdriveSpeed() {
+    return this->driveMinSpeed;
+}
+
+double MotorController::mturnSpeed() {
+    return this->turnMinSpeed;
+}
+
+float MotorController::getTurnTime() {
+    return this->turnTime;
 }
