@@ -15,6 +15,9 @@
 
 SensorController sensor(3, 0.1);
 MotorController motor;
+int pickedup_hysteresis = 10;
+int pickedup_counter = 0;
+bool picked = false;
 // BluetoothController bt;
 std::vector<int> nav = {0,1,1,0,-1,0,-1,0,0};
 int cells = 0;
@@ -28,6 +31,7 @@ void setup() {
     digitalWrite(LEDG, HIGH);
     digitalWrite(LEDB, HIGH);
 
+    delay(4000);
     while (DEBUGGING && !Serial) delay(50);
     Serial.println("Initializing...");
 
@@ -50,8 +54,11 @@ void setup() {
     pinMode(RR_IRi, INPUT);
     pinMode(LL_IRi, INPUT);
     pinMode(LF_IRi, INPUT);
-    // mode button
-    pinMode(BUTTON, INPUT);
+    // buttons
+    pinMode(ONOFF, INPUT_PULLDOWN); // wired to be a pulldown of ONE of the batteries
+    pinMode(BUTTON_1, INPUT_PULLDOWN);
+    pinMode(BUTTON_2, INPUT_PULLDOWN);
+
     Serial.println("Finished initializing pins.");
     sensor.init();
     Serial.println("Finished initializing sensors.");
@@ -103,9 +110,70 @@ std::array<bool, 3> readCurrentWalls() {
     sensor.read();
     sensor.push();
     bool L = (sensor.getLLs() - sensor.getBaseL() > -30);
-    bool F = (sensor.getLFs() + sensor.getRFs() - sensor.getLFCut() - sensor.getRFCut() > 0); //TODO
+    bool F = (sensor.getLFs() > sensor.getLFCut()) && (sensor.getRFs() > sensor.getRFCut());
     bool R = (sensor.getRRs() - sensor.getBaseR() > -30);
     return {L,F,R};
+}
+
+int buttonMode() {
+    // 0 = OFF (0xx)
+    // +1 = mapping (10x)
+    // +2 = racing (11x)
+    // +0 = algo 1 (1x0)
+    // +10 = algo 2 (1x1)
+    int buttonmode = 0;
+    if (digitalRead(ONOFF)) {
+        Serial.println("ON");
+        if (digitalRead(BUTTON_1)) {
+            Serial.println("\t\tMAPPING");
+            buttonmode+=1;
+        } else {
+            Serial.println("\t\tRACING");
+            buttonmode+=2;
+        }
+        if (digitalRead(BUTTON_2)) {
+            Serial.println("\t\t\t\tALGO 1"); // place holder
+        } else {
+            Serial.println("\t\t\t\tALGO 2"); // place holder
+            buttonmode+=10;
+        }
+    } else {
+        Serial.println("OFF");
+    }
+    return buttonmode;
+}
+
+bool pickedup() {
+    // reads gyro and makes sure is on the ground WITH HYSTERESIS HANDLING
+    if (fabs(sensor.getAz()-1) > .03 && fabs(sensor.getAx()) > .03 && fabs(sensor.getAy()) > .03) { // transient pickup
+        if (!picked) {
+            pickedup_counter++;
+            if (pickedup_counter > pickedup_hysteresis) {
+                picked = true;
+            }
+        } else {
+            pickedup_counter = 0;
+        }  
+    } else {
+        if (picked) {
+            pickedup_counter++;
+            if (pickedup_counter > pickedup_hysteresis) {
+                picked = false;
+            }
+        } else {
+            pickedup_counter = 0;
+        }  
+    }
+    if (picked) {
+        digitalWrite(LEDR, LOW);
+        digitalWrite(LEDG, HIGH);
+        digitalWrite(LEDB, HIGH);
+    } else {
+        digitalWrite(LEDR, HIGH);
+        digitalWrite(LEDG, LOW);
+        digitalWrite(LEDB, HIGH);
+    }
+    return picked;
 }
 
 bool controlMaze() {
@@ -190,45 +258,79 @@ bool controlMaze() {
 int currentTheoreticalYaw = 0;
 const double TURN_THRESHOLD = 2;
 int stableCount = 0;
-bool timeBased = true;
-double turnAngle = 0;
+int method = 1;
+double cumYaw = 0;
+void printstr(String s){
+    Serial.println(s);
+    bt_loop(s);
+}
 void control() {
     if (motor.isInMotion()) {
         // only do things when inMotion
         if (motor.isInTurn()) {
-            if (timeBased) {
-                long int start_time = millis();
-                int coef = (turnAngle > 0) ? 1 : -1;
-                motor.setSpeed(- coef * motor.mturnSpeed(), coef * motor.mturnSpeed());
-                while (millis()-start_time < motor.getTurnTime()) {
-                }
-                motor.setSpeed(0,0);
-                motor.setInMotion(false);
-                motor.setInTurn(false);
-            } else{
-            // turning motion
-            double diff = fmod((motor.getTargetYaw() - sensor.getYawDeg() + 720), 360);
-            int coef = (diff < 180) ? 1 : -1;
-            double dAngle = (diff < 180) ? diff : (360 - diff);
-            if ( abs(dAngle) > TURN_THRESHOLD) {
-                stableCount = 0;
-                // if still out of tolerance range
-                long int ct = millis();
-                int dt = ct - motor.getLastRun() + 1;
-                motor.setSpeed(- coef * motor.mturnSpeed(), coef * motor.mturnSpeed());
-                Serial.println("dir: " + String(coef) + " diff: " + String(diff, 2) + " dt: " + String(dt));
-                bt_loop("TargYaw: " + String(motor.getTargetYaw(), 2) + " Yaw: " + String(sensor.getYawDeg(), 2) + "dir: " + String(coef) + " dAngle: " + String(dAngle, 2) + " dt: " + String(dt) + "gz: " + String(sensor.getGz(), 2) + "imu dt: " + String(sensor.runTime));
-                motor.setLastRun(ct);
-            } else {
-                stableCount++;
+            switch (method) {
+                case 0: // time based
+                    {
+                        long int start_time = millis();
+                        int coef = (motor.getTargetYaw() > 0) ? 1 : -1;
+                        motor.setSpeed(- coef * motor.mturnSpeed(), coef * motor.mturnSpeed());
+                        while (millis()-start_time < motor.getTurnTime()) {
+                        }
+                        motor.setSpeed(0,0);
+                        motor.setInMotion(false);
+                        motor.setInTurn(false);
+                        break;
+                    }   
+                case 1: // gyro based "turndeg"
+                    {
+                        long int hold_time = micros();
+                        double turn_speed = 45; // anything less stalls it
+                        double prefact = -1;
+                        if (motor.getTargetYaw() < 0) {prefact = 1;}
+                        motor.setSpeed(turn_speed*prefact,turn_speed*prefact*-1);
+                        if (abs(cumYaw) < abs(motor.getTargetYaw()*.5)) { // TODO figure out why angle fucked
+                            sensor.readIMU();
+                            long int curr_time = micros();
+                            cumYaw += (float)(.000001)*sensor.getGz()*(curr_time-hold_time);
+                            hold_time = curr_time;
+                            printstr("TargYaw: " + String(motor.getTargetYaw(), 2) + " Cum Yaw: " + String(cumYaw, 2));
+                        } else {
+                            cumYaw = 0;
+                            motor.setSpeed(0,0);
+                            motor.setInMotion(false);
+                            motor.setInTurn(false);
+                            motor.setSpeed(0, 0);
+                        }
+                        break;
+                    }
+                case 2: // "PID" "stablecount"
+                    {
+                        // turning motion
+                        double diff = fmod((motor.getTargetYaw() - sensor.getYawDeg() + 720), 360);
+                        int coef = (diff < 180) ? 1 : -1;
+                        double dAngle = (diff < 180) ? diff : (360 - diff);
+                        if ( abs(dAngle) > TURN_THRESHOLD) {
+                            stableCount = 0;
+                            // if still out of tolerance range
+                            long int ct = millis();
+                            int dt = ct - motor.getLastRun() + 1;
+                            motor.setSpeed(- coef * motor.mturnSpeed(), coef * motor.mturnSpeed());
+                            printstr("dir: " + String(coef) + " diff: " + String(diff, 2) + " dt: " + String(dt));
+                            printstr("TargYaw: " + String(motor.getTargetYaw(), 2) + " Yaw: " + String(sensor.getYawDeg(), 2) + "dir: " + String(coef) + " dAngle: " + String(dAngle, 2) + " dt: " + String(dt) + "gz: " + String(sensor.getGz(), 2) + "imu dt: " + String(sensor.runTime));
+                            motor.setLastRun(ct);
+                        } else {
+                            stableCount++;
 
-                if (stableCount >= 2) {
-                    motor.setInMotion(false);
-                    motor.setInTurn(false);
-                    motor.setSpeed(0, 0);
-                    stableCount = 0;
-                }
-            }
+                            if (stableCount >= 2) {
+                                motor.setInMotion(false);
+                                motor.setInTurn(false);
+                                motor.setSpeed(0, 0);
+                                stableCount = 0;
+                            }
+                        }
+                        break;
+                    }
+
             }
         } else {
             // driving motion
@@ -238,7 +340,7 @@ void control() {
                 double L = motor.getTargetL();
                 sensor.read();
                 sensor.push();
-                if (l < L) { // && (l < .85*L || sensor.getLFs() + sensor.getRFs() >  .95*(sensor.getLFCut() + sensor.getRFCut()))) {
+                if (l < L && (l < .6 * L || sensor.getLFs() < sensor.getLFCut()) &&  (l < .6 * L || sensor.getRFs() < sensor.getRFCut())) {
                     // only drive if l < L and it's not too close to the wall beyond 70% of the way to the next
                     // motor differential
                     double diffEnc = l - r;
@@ -274,7 +376,8 @@ void control() {
 
                     motor.setSpeed(ls,rs);
                     motor.setLastRun(ct);
-                    Serial.println("t " + String(ct) + ",dt " + String(dt) + ",l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR" + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
+                    // printstr("t " + String(ct) + ",dt " + String(dt) + ",l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
+                    printstr(sensor.dumpIRString());
                 }
                 else {
                     motor.setInMotion(false);
@@ -282,6 +385,22 @@ void control() {
                 }
         }
     }
+}
+
+void turnDeg(double deg) { // positive = CCW
+    double angle = 0;
+    long int hold_time = micros();
+    double turn_speed = 45; // anything less stalls it
+    double prefact = -1;
+    if (deg < 0) {prefact = 1;}
+    motor.setSpeed(turn_speed*prefact,turn_speed*prefact*-1);
+    while (abs(angle) < abs(deg*.5)) { // TODO figure out why angle fucked
+        sensor.readIMU();
+        long int curr_time = micros();
+        angle += (float)(.000001)*sensor.getGz()*(curr_time-hold_time);
+        hold_time = curr_time;
+    }
+    motor.setSpeed(0,0);
 }
 
 void loop() {
@@ -341,40 +460,42 @@ void loop() {
         // cells++;
     }
     */
-    // sensor.readIMU();
+
+
+
+    sensor.readIMU();
+    Serial.println("\t" + String(buttonMode()));
+    Serial.println("\t\t\t"+ String(pickedup()));
     BLE.poll();
     int currTime = millis();
     if (!motor.isInMotion() && currTime - last > 2000) {
         if (justTurned) {
+
             motor.driveStraight(14, 50); 
             justTurned = false;
             motor.setSpeed(motor.mdriveSpeed()*1.1,motor.mdriveSpeed()*1.1);
         } else {
             std::array<bool,3> currentWalls = readCurrentWalls();
-                for (int i = 0; i < 3; i ++) {
-                    Serial.print(currentWalls[i]);
-                    Serial.print(",");
-                }
-                Serial.println();
-                if (!currentWalls[0]) {
-                    turnAngle = 90;
-                    //motor.turnToYaw(sensor.getYawDeg()+60);
-                    motor.turnToYaw(0);
-                    justTurned = true;
-                    delay(250);
-                } else if (!currentWalls[2]) {
-                    turnAngle = -90;
-                    // motor.turnToYaw(sensor.getYawDeg()-60);
-                    motor.turnToYaw(0);
-                    justTurned = true;
-                    delay(250);
-                } else {
-                    motor.driveStraight(14, 50); 
-                    motor.setSpeed(motor.mdriveSpeed()*1.1,motor.mdriveSpeed()*1.1);
-                }
+            printstr("If there's wall: L:" + String(currentWalls[0]) + "\tF:" + String(currentWalls[1]) + "\tR:" + String(currentWalls[2]));
+            if (!currentWalls[0]) {
+                printstr("Left Turn");
+                //motor.turnToYaw(sensor.getYawDeg()+60);
+                motor.turnToYaw(90);
+                justTurned = true;
+                delay(250);
+            } else if (!currentWalls[2]) {
+                printstr("Right Turn");
+                // motor.turnToYaw(sensor.getYawDeg()-60);
+                motor.turnToYaw(-90);
+                justTurned = true;
+                delay(250);
+            } else {
+                printstr("Drive Straight");
+                motor.driveStraight(14, 50); 
+                motor.setSpeed(motor.mdriveSpeed()*1.1,motor.mdriveSpeed()*1.1);
+            }
         }
         last = currTime;
     }
     control();
-    // bt_loop(String(millis()));
 }

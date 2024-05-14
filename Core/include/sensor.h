@@ -66,6 +66,8 @@ class SensorController {
         float getRRCoeff();
         float getLFCoeff();
         float getRFCoeff();
+        float getAx();
+        float getAy();
         float getAz();
         float getGz();
         void calibrate();

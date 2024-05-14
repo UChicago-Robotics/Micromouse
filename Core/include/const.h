@@ -32,6 +32,8 @@ const int MOTOR_PINS[4] = {D2, D3, D4, D5};
 #define LF_IRo D9
 
 // button input
-#define BUTTON D8
+#define ONOFF D6
+#define BUTTON_1 D7
+#define BUTTON_2 D8
 
 #endif

@@ -18,7 +18,7 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->LL_cutoff = 5; // cutoff for missing wall
     this->RR_cutoff = 5;
     this->RF_cutoff = 240;
-    this->LF_cutoff = 185;
+    this->LF_cutoff = 250;
     this->LL_coeff = .05; // weighting of wall dist vs encoder diff
     this->RR_coeff = .05;
     this->RF_coeff = .1;
@@ -239,7 +239,7 @@ String SensorController::dumpIMUString() {
 }
 String SensorController::dumpIRString() {
     // LFs,LLs,RRs,RFs, with 2 decimals of precision
-    return String(this->dt) + "\t IR:" + String(this->LFs,2) + "," + String(this->LLs,2) + "," + String(this->RRs,2) + "," + String(this->RFs);
+    return String(this->dt) + "\t IR: LFs: " + String(this->LFs,2) + ", LLs: " + String(this->LLs,2) + ", RRs: " + String(this->RRs,2) + ", RFs: " + String(this->RFs) + ", BaseL: " + String(this->LL_base, 2) + ", BaseR: " + String(this->RR_base, 2);
 }
 
 void SensorController::calibrate() {
@@ -320,6 +320,14 @@ float SensorController::getLFCoeff() {
 }
 float SensorController::getRFCoeff() {
     return this->RF_coeff;
+}
+
+float SensorController::getAx() {
+    return this->ax;
+}
+
+float SensorController::getAy() {
+    return this->ay;
 }
 
 float SensorController::getAz() {
