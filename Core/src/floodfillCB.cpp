@@ -25,17 +25,13 @@ using namespace std;
 typedef pair<int, int> ipair;
 typedef vector<pair<int, int>> vpair;
 
-// TODO: make into class
 // TODO: confirm this shit runs on arduino (uses a lot of c++17 features)
 
-//#define empty_f 0
 #define WALL 1
 #define EMPTY 0
 #define UNVISITED 2
 #define VISITED 3
 #define MAZE_SIZE 8
-
-
 
 int index(int ri, int ci) {
     return ri * MAZE_SIZE + ci;
@@ -82,6 +78,7 @@ private:
                 case 2:
                     std::cout << ".";
             }
+
             if (j == MAZE_SIZE-1) {
                 break;
             }
@@ -132,12 +129,12 @@ private:
         std::cout << "--";
     }
     std::cout << " " << std::endl;
-}
+    }
 
 
 public:
-    int r = 0;
-    int c = 0;
+    int mouse_r = 0;
+    int mouse_c = 0;
     int dir = 0; // 0 = right, 1 = down, 2 = left, 3 = up
         
     uint8_t* memV_maze;
@@ -192,6 +189,9 @@ public:
                 memH_maze[index(i,j)] = UNVISITED;
             }
         }
+
+        auto walls = sense();
+        sense_update(walls);
     }
 
     int d2c(int r, int c) {
@@ -210,7 +210,7 @@ public:
     
     bool done() {
         int h = MAZE_SIZE/2;
-        return (r == h || r == h-1) && (c == h || c == h-1);
+        return (mouse_r == h || mouse_r == h-1) && (mouse_c == h || mouse_c == h-1);
     }
 
     /**
@@ -223,15 +223,19 @@ public:
     vector<ipair> get_adj(ipair pos, bool only_visited = false) {
         int r = pos.first, c = pos.second;
         vector<ipair> adj;
+        
+        auto walls = sense();
+        sense_update(walls);
 
         // check adjacent nodes that don't have blocking walls
-        if (memH_maze[index(r-1, c)] != WALL) adj.push_back({r-1, c });
-        if (memH_maze[index(r, c)] != WALL) adj.push_back({r+1, c});
+        if (memH_maze[index(r-1, c)] == EMPTY) adj.push_back({r-1, c });
+
+        if (memH_maze[index(r, c)] == EMPTY) adj.push_back({r+1, c});
+    
+        if (memV_maze[index(r, c+1)] == EMPTY) adj.push_back({r, c-1});
+    
+        if (memV_maze[index(r, c)] == EMPTY) adj.push_back({r, c+1});
         
-        if (memV_maze[index(r, c-1)] != WALL) adj.push_back({r, c-1});
-        if (memV_maze[index(r, c)] != WALL) adj.push_back({r, c+1});
-        
-        int visited_bitmask = !(only_visited << 31);
         vector<ipair> res;
 
         // filter out adj nodes with invalid coords
@@ -239,9 +243,8 @@ public:
             if (
                 0 <= a.first 
                 && 0 <= a.second 
-                && a.first < MAZE_SIZE 
+                && a.first < MAZE_SIZE
                 && a.second < MAZE_SIZE
-                && ((mem_maze[index(a.first, a.second)] == VISITED) | visited_bitmask) // possible bug
             ) {
                 res.push_back(a);
             }
@@ -258,7 +261,15 @@ public:
      * @param dest 
      * @return std::vector<int> path as list of cell indecies
      */
-    std::vector<int> getPath(const std::vector<int>& parent, int dest) {
+   std::vector<int> getPath(const std::vector<int>& parent, int dest) {
+        // i've heard microcontrollers hate recursive stack pressure, but i'm too lazy to fix
+        std::vector<int> path;
+        if (parent[dest] == -1)
+            return path;
+        path = getPath(parent, parent[dest]);
+        path.push_back(dest);
+        return path;
+    }
 
     /**
      * @brief Finds the shortest path between two nodes, returns the result as a list
@@ -270,7 +281,7 @@ public:
      * @param c2 
      * @return std::vector<int> 
      */
-    vector<int> shortest_path(int r1, int c1, int r2, int c2) {
+    vector<ipair> shortest_path(int r1, int c1, int r2, int c2) {
         int n = MAZE_SIZE*MAZE_SIZE;
 
         // we use the 1d index of each node because c++ pairs aren't hashable lol
@@ -303,273 +314,243 @@ public:
             cur_layer = next_layer;
         }
 
-        return getPath(prev, index(r2, c2));
+        vector<int> index_path = getPath(prev, index(r2, c2));
+        vector<ipair> res;
+
+        for (auto i: index_path) res.push_back(get2Dpos(i));
+        return res;
+    }
+
+    /**
+     * @brief emulator for the mouse sensing the physical walls in the current direction
+     * RELATIVE TO THE MOUSE.
+     * 
+     * @return std::array<bool,3> : a boolean representing the walls to the 
+     * current left, center, right
+     */
+    std::array<bool,3> sense() {
+        // I'm a lazy piece of shit, so I'm hardcoding this and it's nasty af --> but it works
+        std::array<int,3> rs = {0,0,0};
+        std::array<int,3> cs = {0,0,0};
+        if (dir == 0) { // returns h,v,h
+            rs = {-1,0,0};
+            cs = {0,0,0};
+        } else if (dir == 1) { // returns v,h,v
+            rs = {0,0,0};
+            cs = {0,0,-1};
+        } else if (dir == 2) { // returns h,v,h
+            rs = {0,0,-1};
+            cs = {0,-1,0};
+        } else { // returns v,h,v
+            rs = {0,-1,0};
+            cs = {-1,0,0};
+        }
+        std::array<bool,3> walls = {false,false,false};
+        for (int i = 0; i < 3; i++) {
+            int ri = rs[i] + mouse_r;
+            int ci = cs[i] + mouse_c;
+            if (ri < 0 || ci < 0) {
+            walls[i] = true; // outside wall
+            continue;
+            }
+            if ((dir % 2 == 0 && i % 2 ==1) || (dir % 2 == 1 && i % 2 == 0)) { // left and right so in bounds (N-1,N) (N,N-1) (N-1,N)
+            // verticals
+            if (ri >= MAZE_SIZE || ci >= MAZE_SIZE -1) {
+                walls[i] = true; // outside wall
+                continue;
+            }
+            walls[i] = realV_maze[index(ri,ci)];
+            }
+            else {
+            // horizontals
+            if (ri >= MAZE_SIZE-1 || ci >= MAZE_SIZE ) {
+                walls[i] = true; // outside wall
+                continue;
+            }
+            walls[i] = realH_maze[index(ri,ci)];
+            }
+        }
+        return walls;
+
+    }
+
+    /**
+     * @brief updates memory array based on observation at a point. Memory is always
+     * up to date.
+     * 
+     * @param w 
+     */
+    void sense_update(std::array<bool,3> w) {
+        mem_maze[index(mouse_r,mouse_c)] = 0;
+        std::array<int,3> rs = {0,0,0};
+        std::array<int,3> cs = {0,0,0};
+        if (dir == 0) { // returns h,v,h
+            rs = {-1,0,0};
+            cs = {0,0,0};
+        } else if (dir == 1) { // returns v,h,v
+            rs = {0,0,0};
+            cs = {0,0,-1};
+        } else if (dir == 2) { // returns h,v,h
+            rs = {0,0,-1};
+            cs = {0,-1,0};
+        } else { // returns v,h,v
+            rs = {0,-1,0};
+            cs = {-1,0,0};
+        }
+        for (int i = 0; i < 3; i++) {
+            int ri = rs[i] + mouse_r;
+            int ci = cs[i] + mouse_c;
+            if (ri < 0 || ci < 0) {
+                continue;
+            }
+            if ((dir % 2 == 0 && i % 2 ==1) || (dir % 2 == 1 && i % 2 == 0)) { // left and right so in bounds (N-1,N) (N,N-1) (N-1,N)
+                if (ri >= MAZE_SIZE || ci >= MAZE_SIZE-1) {
+                    continue;
+                }
+                memV_maze[index(ri,ci)] = w[i];
+            } else {
+                if (ri >= MAZE_SIZE-1 || ci >= MAZE_SIZE ) {
+                    continue;
+                }
+                memH_maze[index(ri,ci)] = w[i];
+            }
+        }
+    }
+
+    /**
+     * @brief converts list of indices (path ie 1,2,3,4,12) to instructions to get from A to B 
+     * ex: (0,0,0,1) --> (straight straight straight right+straight)
+     * 
+     * @param path 1-d array representing a path from node a --> b
+     * @return std::vector<int> 
+     */
+    std::vector<int> path2nav(std::vector<int> path) {
+        std::vector<int> nav = {};
+        for (int i = 0; i < path.size()-1; i++) {
+            int move = -100;
+            switch(path[i+1]-path[i]) {
+                case 1:
+                    nav.push_back(0);
+                    break;
+                case MAZE_SIZE:
+                    nav.push_back(1);
+                    break;
+                case -MAZE_SIZE:
+                    nav.push_back(-1);
+                    break;
+                default:
+                    nav.push_back(-100);
+                    std::cout << "YOU FUCKED UP" << std::endl;   
+            }
+        }
+        return nav;
+    }
+
+    /**
+     * @brief Floodfill algorithm, finds the nearest unvisited node. If there are 2 nodes
+     * that are equidistant, we choose the node that's closer to the center.
+     * 
+     * @param r
+     * @param c
+     * @return std::vector<int> 
+     */
+    ipair floodfill() {
+        int target_r;
+        int target_c;
+
+        vector<pair<int, int>> unvisited;
+        vector<pair<int, int>> cur_layer = {{mouse_r, mouse_c}};
+
+        while (unvisited.empty()) {
+            for (auto a : get_adj({r, c})) {
+
+                // Add visited to queue
+                if (mem_maze[index(a.first, a.second)] == VISITED) {
+                    
+                }
+            }
+        }
+
+    }
+
+    /**
+     * @brief Makes mouse travel from its current position (defined in class vars
+     * r and c) to the dest, scanning walls while doing so. Note that the mouse
+     * can only travel on visited nodes to get there
+     * 
+     * @param dest 
+     */
+    int moveto(ipair dest) {
+        int tr = dest.first, tc = dest.second;
+        vector<ipair> path = shortest_path(mouse_r, mouse_c, tr, tc);
+        
+        // If there is no valid path error out
+        if (path.empty()) return 0;
+
+        for (ipair node : path) {
+
+            auto walls = sense();
+            sense_update(walls);
+            
+            // navigate to next position
+            int nr = node.first, nc = node.second;
+
+            // determine orentation
+            if (nr > mouse_r) {
+                dir = 3; // up
+            } if (nr < mouse_r) {
+                dir = 1;
+            } if (nc > mouse_c) {
+                dir = 0;
+            } if (nc < mouse_c) {
+                dir = 2;
+            }
+
+            // move mouse
+            mouse_r = nr;
+            mouse_c = nc;
+        }
+
+        return 1;
     }
 };
 
-/**
- * @brief converts list of indices (path ie 1,2,3,4,12) to instructions to get from A to B 
- * ex: (0,0,0,1) --> (straight straight straight right+straight)
- * 
- * @param path 1-d array representing a path from node a --> b
- * @return std::vector<int> 
- */
-std::vector<int> path2nav(std::vector<int> path) {
-    std::vector<int> nav = {};
-    for (int i = 0; i < path.size()-1; i++) {
-        int move = -100;
-        switch(path[i+1]-path[i]) {
-            case 1:
-                nav.push_back(0);
-                break;
-            case MAZE_SIZE:
-                nav.push_back(1);
-                break;
-            case -MAZE_SIZE:
-                nav.push_back(-1);
-                break;
-            default:
-                nav.push_back(-100);
-                std::cout << "YOU FUCKED UP" << std::endl;   
-        }
-    }
-    return nav;
-}
-
-/**
- * @brief Floodfill algorithm, finds the nearest unvisited node. If there are 2 nodes
- * that are equidistant, we choose the node that's closer to the center.
- * 
- * @param r
- * @param c
- * @return std::vector<int> 
- */
-std::vector<int> floodfill(int r, int c) {
-    int target_r; 
-    int target_c;
-
-    vector<pair<int, int>> unvisited;
-    vector<pair<int, int>> cur_layer = {{r, c}};
-
-    // BFS to find nearest unvisited node
-    while (unvisited.empty()) {
-        vpair next_layer;
-
-        for (ipair n : cur_layer) {
-            for (auto a : get_adj(n)) {
-                    if (mem_maze[index(a.first, a.second)] == VISITED) {
-                        next_layer.push_back(a);
-                    
-                    // if node is unvisited, add to queue
-                    } else if (mem_maze[index(a.first, a.second)] == UNVISITED) {
-                        unvisited.push_back(a);
-                    }
-                }
-            }
-         cur_layer = next_layer;
-    }
-
-    // TODO: select based on better scheme
-    target_r = unvisited[0].first, target_c = unvisited[0].second;
-    //printf("(%d, %d) --> (%d, %d)\n", r, c, target_r, target_c);
-    return shortest_path(r, c, target_r, target_c);
-}
-
-/**
- * @brief emulator for the mouse sensing the physical walls in the current direction
- * RELATIVE TO THE MOUSE.
- * 
- * @return std::array<bool,3> : a boolean representing the walls to the 
- * current left, center, right
- */
-std::array<bool,3> sense(int r, int c, int dir) {
-    // I'm a lazy piece of shit, so I'm hardcoding this and it's nasty af --> but it works
-    std::array<int,3> rs = {0,0,0};
-    std::array<int,3> cs = {0,0,0};
-    if (dir == 0) { // returns h,v,h
-        rs = {-1,0,0};
-        cs = {0,0,0};
-    } else if (dir == 1) { // returns v,h,v
-        rs = {0,0,0};
-        cs = {0,0,-1};
-    } else if (dir == 2) { // returns h,v,h
-        rs = {0,0,-1};
-        cs = {0,-1,0};
-    } else { // returns v,h,v
-        rs = {0,-1,0};
-        cs = {-1,0,0};
-    }
-    std::array<bool,3> walls = {false,false,false};
-    for (int i = 0; i < 3; i++) {
-        int ri = rs[i] + r;
-        int ci = cs[i] + c;
-        if (ri < 0 || ci < 0) {
-          walls[i] = true; // outside wall
-          continue;
-        }
-        if ((dir % 2 == 0 && i % 2 ==1) || (dir % 2 == 1 && i % 2 == 0)) { // left and right so in bounds (N-1,N) (N,N-1) (N-1,N)
-          // verticals
-          if (ri >= MAZE_SIZE || ci >= MAZE_SIZE -1) {
-            walls[i] = true; // outside wall
-            continue;
-          }
-          walls[i] = realV_maze[index(ri,ci)];
-        }
-        else {
-          // horizontals
-          if (ri >= MAZE_SIZE-1 || ci >= MAZE_SIZE ) {
-            walls[i] = true; // outside wall
-            continue;
-          }
-          walls[i] = realH_maze[index(ri,ci)];
-        }
-    }
-    return walls;
-
-}
-
-/**
- * @brief updates memory array based on observation at a point. Memory is always
- * up to date.
- * 
- * @param w 
- */
-void sense_update(std::array<bool,3> w, int r, int c, int dir) {
-    mem_maze[index(r,c)] = 0;
-    std::array<int,3> rs = {0,0,0};
-    std::array<int,3> cs = {0,0,0};
-    if (dir == 0) { // returns h,v,h
-        rs = {-1,0,0};
-        cs = {0,0,0};
-    } else if (dir == 1) { // returns v,h,v
-        rs = {0,0,0};
-        cs = {0,0,-1};
-    } else if (dir == 2) { // returns h,v,h
-        rs = {0,0,-1};
-        cs = {0,-1,0};
-    } else { // returns v,h,v
-        rs = {0,-1,0};
-        cs = {-1,0,0};
-    }
-    for (int i = 0; i < 3; i++) {
-        int ri = rs[i] + r;
-        int ci = cs[i] + c;
-        if (ri < 0 || ci < 0) {
-            continue;
-        }
-        if ((dir % 2 == 0 && i % 2 ==1) || (dir % 2 == 1 && i % 2 == 0)) { // left and right so in bounds (N-1,N) (N,N-1) (N-1,N)
-            if (ri >= MAZE_SIZE || ci >= MAZE_SIZE-1) {
-                continue;
-            }
-            memV_maze[index(ri,ci)] = w[i];
-        } else {
-            if (ri >= MAZE_SIZE-1 || ci >= MAZE_SIZE ) {
-                continue;
-            }
-            memH_maze[index(ri,ci)] = w[i];
-        }
-    }
-}
 
 int main() {
+    Navigator n;
 
-    /*
-    print_real_maze();
-    print_mem_maze();
-    //<\example maze>
-
-    // <examples of subroutines drivepath, sense, done, etc>
-    // driving navigation demos
-    std::vector<int> nav = {0,0,0,1,0,1,-1};
-    drivenav(nav); // (0,0) -> (3,2)
-    std::cout << r << " " << c << std::endl;
-    nav = {2,0};
-    drivenav(nav); // (3,2) -> (1,2)
-    std::cout << r << " " << c << std::endl;
-
-    // sensing walls
-    r = 4;
-    c = 5;
-    dir = 0;
-    std::array<bool,3> s = sense();
-    std::cout << s[0] << " " << s[1] << " " << s[2] << std::endl;
-
-    // done ie if in final cells
-    r = 3;
-    c = 5;
-    std::cout << done() << std::endl;
-
-    // sense update
-    r = 0;
-    c = 0;
-    dir = 0;
-    sense_update(sense());
-    print_mem_maze();
-    c = 1;
-    sense_update(sense());
-    print_mem_maze();
-
-    // connection
-    std::cout << connected(0,1) << std::endl;
-
-    // dijkstra
-    c = 2;
-    sense_update(sense());
-    c = 3;
-    sense_update(sense());
-    c = 4;
-    sense_update(sense());
-    c = 5;
-    sense_update(sense());
-    c = 6;
-    sense_update(sense());
-    r = 1;
-    dir = 1;
-    sense_update(sense());
-    c = 4;
-    sense_update(sense());
-    print_mem_maze();
-    std::vector<int> p = dijkstra(0,0,1,4);
-    for (int i = 0; i < p.size(); i ++) {
-        std::cout << p[i] << " ";
-    }
-    std::cout << std::endl;
+    n.print_real_maze();
     
-    // convert path to navigation instructions
-    std::vector<int> n = path2nav(p);
-        for (int i = 0; i < n.size(); i ++) {
-        std::cout << n[i] << " ";
+    for (auto p : path) {
+        auto next = p;
+        
+        n.print_mem_maze();
     }
-    std::cout << std::endl;
-    // <\examples of subroutines navigate, sense, done, dijkstra>
-    */
+    
 
-    for (int i = 0; i < 100; i++) {
-        auto walls = sense();
-        sense_update(walls);
+/*
+    for (auto adj : n.get_adj({0, 0}))
+        printf("(%d, %d), ", adj.first, adj.second);
+    printf("\n");
 
-        int prev_r = r;
-        int prev_c = c;
-
-        vector<int> path = floodfill(r, c);
-        ipair nn = get2Dpos(path[path.size()-1]);
-
-        if (prev_r > nn.first) {
-            dir = 1; // down
-        } if (prev_r < nn.first) {
-            dir = 3; // up
-        } if (prev_c < nn.second) {
-            dir = 0; // right
-        } if (prev_c > nn.second) {
-            dir = 2; // left
+    for (int i = 0; i < 7; i ++) {
+        for (int j = 0; j < 8; j++) {
+            printf("%d ", n.memH_maze[index(i,j)]);
         }
-
-        // move to new position
-        r = nn.first;
-        c = nn.second;
-
-        printf("%d, %d, %d \n", r, c, dir);
-        print_maze(memH_maze, memV_maze, mem_maze);
         printf("\n");
     }
+
+    printf("\n");
+
+    for (int i = 0; i < 7; i ++) {
+        for (int j = 0; j < 8; j++) {
+            printf("%d ", n.realH_maze[index(i,j)]);
+        }
+        printf("\n");
+    }
+*/
+
+
+    n.print_mem_maze();
+
 }

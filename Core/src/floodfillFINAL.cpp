@@ -39,7 +39,7 @@ typedef vector<pair<int, int>> vpair;
 #define DOWN 1
 #define LEFT 2
 #define UP 3
-#define MOVE 4
+#define MOVE 4 
 
 #define MAZE_SIZE 8
 
@@ -184,7 +184,12 @@ public:
         for (int i = 0; i < MAZE_SIZE*MAZE_SIZE; i++) {
             if (mem_maze[i] == VISITED) visited_arr[i] = ' ';
             if (mem_maze[i] == UNVISITED) visited_arr[i] = '.';
-            if (index(mouse_r, mouse_c) == i) visited_arr[i] = 'M';
+            if (index(mouse_r, mouse_c) == i) {
+                if (dir == UP) visited_arr[i] = '^';
+                else if (dir == RIGHT) visited_arr[i] = '>';
+                else if (dir == LEFT) visited_arr[i] = '<';
+                else if (dir == DOWN) visited_arr[i] = 'v';
+            }
             
             // optional: print ADJ
             if (find(adj.begin(), adj.end(), i) != adj.end()) visited_arr[i] = 'A';
@@ -409,7 +414,6 @@ public:
                
                 cdir = LEFT;  // Update direction
             }
-            printf("?\n");
 
             instr.push_back(MOVE);  // Move forward
 
@@ -469,28 +473,27 @@ public:
     // Movement API
 
     void turn_left() {
-        if (dir == RIGHT) dir == UP;
-        if (dir == UP) dir == LEFT;
-        if (dir == LEFT) dir == DOWN;
-        if (dir == DOWN) dir == RIGHT;
+        if (this->dir == RIGHT) this->dir = UP;
+        else if (this->dir == UP) this->dir = LEFT;
+        else if (this->dir == LEFT) this->dir = DOWN;
+        else if (this->dir == DOWN) this->dir = RIGHT;
     }
 
     void turn_right() {
-        if (dir == RIGHT) dir == DOWN;
-        if (dir == DOWN) dir == LEFT;
-        if (dir == LEFT) dir == UP;
-        if (dir == UP) dir == RIGHT;
+        if (this->dir == RIGHT) this->dir = DOWN;
+        else if (this->dir == DOWN) this->dir = LEFT;
+        else if (this->dir == LEFT) this->dir = UP;
+        else if (this->dir == UP) this->dir = RIGHT;
     }
 
     void move_straight() {
         if (dir == RIGHT) mouse_c++;
         if (dir == LEFT) mouse_c--;
-        if (dir == UP) mouse_c--;
-        if (dir == DOWN) mouse_c++;
+        if (dir == UP) mouse_r--;
+        if (dir == DOWN) mouse_r++;
     } 
 
 };
-
 
 void adj_test() {
     Navigator n;
@@ -508,13 +511,23 @@ void adj_test() {
     n.print_mem_maze();
 }
 
+void print_instr(vector<int> instr) {
+    for (int i : instr) {
+        if (i == RIGHT) printf("RIGHT ");
+        if (i == LEFT) printf("LEFT ");
+        if (i == MOVE) printf("MOVE ");
+    }
+    printf("\n");
+}
+
 void floodfill_test() {
     Navigator n;
     n.print_real_maze();
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 100; i++) {
         vector<int> path = n.floodfill(index(n.mouse_r, n.mouse_c));
         vector<int> instr = n.generate_instr(path);
+        print_instr(instr);
 
         for (int in : instr) {
             if (in == LEFT) n.turn_left();
@@ -525,6 +538,7 @@ void floodfill_test() {
             n.sense_update(walls);
         }
 
+        n.mem_maze[index(n.mouse_r, n.mouse_c)] = VISITED;
         n.print_mem_maze();
     }
 }
