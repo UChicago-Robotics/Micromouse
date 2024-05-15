@@ -212,16 +212,16 @@ public:
     vector<int> get_adj(int r, int c) {
         vector<int> adj_nodes;
 
-        if (!is_wall_present(memV_maze, r, c) ) {
+        if (!is_wall_present(memV_maze, r, c) && in_bounds(r, c+1)) {
             adj_nodes.push_back(index(r, c + 1));
         } 
-        if (!is_wall_present(memV_maze, r, c - 1) ) {
+        if (!is_wall_present(memV_maze, r, c - 1) && in_bounds(r, c-1)) {
             adj_nodes.push_back(index(r, c - 1));
         } 
-        if (!is_wall_present(memH_maze, r, c) ) {
+        if (!is_wall_present(memH_maze, r, c) && in_bounds(r+1, c)) {
             adj_nodes.push_back(index(r + 1, c));
         } 
-        if (!is_wall_present(memH_maze, r - 1, c) ) {
+        if (!is_wall_present(memH_maze, r - 1, c) && in_bounds(r-1, c)) {
             adj_nodes.push_back(index(r - 1, c));
         } 
 
@@ -333,6 +333,8 @@ public:
         vector<int> cur_layer = {src};
         vector<int> next_layer;
 
+        int closest = -1;
+
         while (!cur_layer.empty()) {
             for (int cur: cur_layer) {
                 for (int adj : get_adj(cur)) {
@@ -344,6 +346,10 @@ public:
 
                         next_layer.push_back(adj);
                         visited.insert(adj);
+
+                        // write as closest unvisited
+                        if (closest == -1 && mem_maze[adj] == UNVISITED)
+                            closest = adj;
                     }
                 }
             }
@@ -353,16 +359,18 @@ public:
         }
 
         // find nearested unvisited node with shortest distance to center
+        /*
         vector<int> closest_to_center = {0, INT16_MAX};
         for (int v : visited) {
             if (mem_maze[v] == UNVISITED && d2c(v) < closest_to_center[1])
                 closest_to_center = {v, d2c(v)};
         }
+        */
 
         // find path from src to dst
         vector<int> path;
         
-        int dst = closest_to_center[0];
+        int dst = closest;
         int cur = dst;
 
         while (cur != src) {
@@ -531,7 +539,7 @@ void floodfill_test() {
     Navigator n;
     n.print_real_maze();
 
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 70; i++) {
         vector<int> path = n.floodfill(index(n.mouse_r, n.mouse_c));
         vector<int> instr = n.generate_instr(path);
         print_instr(instr);
@@ -546,9 +554,10 @@ void floodfill_test() {
             n.sense_update(walls);
         }
 
-        n.mem_maze[index(n.mouse_r, n.mouse_c)] = VISITED;
         n.print_mem_maze();
     }
+
+    n.print_real_maze();
 }
 
 int main() {
