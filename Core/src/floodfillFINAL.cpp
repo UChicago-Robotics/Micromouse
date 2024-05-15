@@ -32,7 +32,6 @@ typedef vector<pair<int, int>> vpair;
 #define WALL 1
 #define EMPTY 0
 #define UNKNOWN 2
-
 #define UNVISITED 2
 #define VISITED 3
 
@@ -40,11 +39,23 @@ typedef vector<pair<int, int>> vpair;
 #define DOWN 1
 #define LEFT 2
 #define UP 3
+#define MOVE 4
 
 #define MAZE_SIZE 8
 
 int index(int ri, int ci) {
     return ri * MAZE_SIZE + ci;
+}
+
+vector<int> get_2d_pos(int index) {
+    return {(int) (index / MAZE_SIZE), index % MAZE_SIZE};
+}
+
+// used to sort paths based on L1 norm of points
+int d2c(int index) {
+    int r = get_2d_pos(index)[0], c = get_2d_pos(index)[1];
+    int h = MAZE_SIZE/2;
+    return min(abs(r-h-1),abs(r-h)) + min(abs(c-h-1),abs(c-h));
 }
 
 bool in_bounds(int r, int c) {
@@ -161,12 +172,6 @@ public:
         sense_update(walls);
     }
 
-    int d2c(int r, int c) {
-        // used to sort paths based on L1 norm of points
-        int h = MAZE_SIZE/2;
-        return min(abs(r-h-1),abs(r-h)) + min(abs(c-h-1),abs(c-h));
-    }
-
     void print_real_maze() {
         print_maze(realH_maze,realV_maze);
     }
@@ -195,7 +200,7 @@ public:
 
     /**
      * @brief Get the adj nodes from current position. Note that we only consider
-     * known walls
+     * known walls TODO: Update to read from memory not is_wall_present
      * 
      * @return vector<int> 
      */
@@ -218,7 +223,12 @@ public:
         return adj_nodes;
     }
 
+    vector<int> get_adj(int index) {
+        return get_adj((int) (index / MAZE_SIZE), index % MAZE_SIZE);
+    }
+
     // Function to check if a wall is present at a specific position in the maze
+    // this is the only function that needs sensor update
     bool is_wall_present(const uint8_t* maze, int row, int col) {
         // Check for boundary walls
         if (row < 0 || row >= MAZE_SIZE || col < 0 || col >= MAZE_SIZE) {
@@ -241,33 +251,180 @@ public:
 
         switch (dir) {
             case UP: 
-                walls[0] = is_wall_present(realV_maze, r, c - 1); // Left wall
-                walls[1] = is_wall_present(realH_maze, r - 1, c);     // Center wall
-                walls[2] = is_wall_present(realV_maze, r, c);     // Right wall
+                walls[0] = is_wall_present(realV_maze, r, c - 1);
+                walls[1] = is_wall_present(realH_maze, r - 1, c);
+                walls[2] = is_wall_present(realV_maze, r, c);
                 break;
             case DOWN:
-                walls[0] = is_wall_present(realV_maze, r, c);     // Left wall
-                walls[1] = is_wall_present(realH_maze, r, c); // Center wall
-                walls[2] = is_wall_present(realV_maze, r, c - 1);     // Right wall
+                walls[0] = is_wall_present(realV_maze, r, c);
+                walls[1] = is_wall_present(realH_maze, r, c);
+                walls[2] = is_wall_present(realV_maze, r, c - 1);
                 break;
             case LEFT:
-                walls[0] = is_wall_present(realH_maze, r, c);       // Left wall
-                walls[1] = is_wall_present(realV_maze, r, c - 1);   // Center wall
-                walls[2] = is_wall_present(realH_maze, r - 1, c); // Right wall
+                walls[0] = is_wall_present(realH_maze, r, c);
+                walls[1] = is_wall_present(realV_maze, r, c - 1);
+                walls[2] = is_wall_present(realH_maze, r - 1, c);
                 break;
             case RIGHT:
-                walls[0] = is_wall_present(realH_maze, r - 1, c);     // Left wall
-                walls[1] = is_wall_present(realV_maze, r, c);     // Center wall
-                walls[2] = is_wall_present(realH_maze, r, c); // Right wall
+                walls[0] = is_wall_present(realH_maze, r - 1, c);
+                walls[1] = is_wall_present(realV_maze, r, c);
+                walls[2] = is_wall_present(realH_maze, r, c);
                 break;
         }
 
         return walls;
-}
+    }
+
+    /**
+     * @brief Finds the next unvisited node closest to the center
+     * 
+     * @return int 
+     */
+    int defunct() {
+        vector<int> cur_layer = {index(mouse_r, mouse_c)};
+        vector<int> next_layer;
+
+        unordered_set<int> visited = {index(mouse_r, mouse_c)};
+        int next_node = INT16_MAX;
+
+        while (!cur_layer.empty()) {
+            for (int c : cur_layer) {
+                for (int a : get_adj(c)) {
+                    // only check adj nodes if they have not been reached in our
+                    // floodfill search and the node we're searching from is visted
+                    if (!visited.count(a) && mem_maze[c] == VISITED) {
+                        next_layer.push_back(a);
+
+                        // replace next if it's closer to the center
+                        next_node = (d2c(a) < d2c(next_node)) ? a : next_node;
+                    }
+                }
+            }
+
+            cur_layer = next_layer;
+            next_layer = {};
+        }
+
+        return next_node;
+    }
+
+    /**
+     * @brief Finds the path to the nearest unvisited node that is closest to the center
+     * 
+     * @param r1 
+     * @param c1 
+     * @param r2 
+     * @param c2 
+     * @return std::vector<int> 
+     */
+    vector<int> floodfill(int src) {
+        int n = MAZE_SIZE*MAZE_SIZE;
+
+        // we use the 1d index of each node because c++ pairs aren't hashable
+        unordered_set<int> visited = {src};
+        vector<int> prev(n, -1);
+        vector<int> dist(n, -1);
+
+        vector<int> cur_layer = {src};
+        vector<int> next_layer;
+
+        while (!cur_layer.empty()) {
+            for (int cur: cur_layer) {
+                for (int adj : get_adj(cur)) {
+
+                    // only check adj nodes if they have not been reached in our
+                    // floodfill search and the node we're searching from is visted
+                    if (!visited.count(adj) && mem_maze[cur] == VISITED) {
+                        prev[adj] = cur;
+
+                        next_layer.push_back(adj);
+                        visited.insert(adj);
+                    }
+                }
+            }
+
+            cur_layer = next_layer;
+            next_layer = {};
+        }
+
+        // find nearested unvisited node with shortest distance to center
+        vector<int> closest_to_center = {0, INT16_MAX};
+        for (int v : visited) {
+            if (mem_maze[v] == UNVISITED && d2c(v) < closest_to_center[1])
+                closest_to_center = {v, d2c(v)};
+        }
+
+        // find path from src to dst
+        vector<int> path;
+        
+        int dst = closest_to_center[0];
+        int cur = dst;
+
+        while (cur != src) {
+            path.push_back(cur);
+            cur = prev[cur];
+        }
+
+        reverse(path.begin(), path.end());
+        return path;
+    }
+
+    /**
+     * @brief Generates a list of instructions from a path
+     * 
+     */
+    vector<int> generate_instr(vector<int> path) {
+        int cdir = dir;
+        int cr = mouse_r, cc = mouse_c;
+
+        vector<int> instr;
+
+        for (int p : path) {
+            int nr = get_2d_pos(p)[0];
+            int nc = get_2d_pos(p)[1];
+
+            if (nr == cr - 1 && nc == cc) {        // Face up
+                if (cdir == DOWN) instr.insert(instr.end(), {RIGHT, RIGHT});
+                if (cdir == LEFT) instr.push_back(RIGHT);
+                if (cdir == RIGHT) instr.push_back(LEFT);
+          
+                cdir = UP;
+
+            } else if (nr == cr + 1 && nc == cc) { // Face down
+                if (cdir == DOWN) instr.insert(instr.end(), {RIGHT, RIGHT});
+                if (cdir == LEFT) instr.push_back(LEFT);
+                if (cdir == RIGHT) instr.push_back(RIGHT);
+          
+                cdir = DOWN;
+            } else if (nr == cr && nc == cc + 1) { // Face right
+                if (cdir == LEFT) instr.insert(instr.end(), {RIGHT, RIGHT});
+                if (cdir == UP) instr.push_back(RIGHT);
+                if (cdir == DOWN) instr.push_back(LEFT);
+          
+                cdir = RIGHT;
+            } else if (nr == cr && nc == cc - 1) { // Face left
+                if (cdir == RIGHT) instr.insert(instr.end(), {RIGHT, RIGHT});
+                if (cdir == UP) instr.push_back(LEFT);
+                if (cdir == DOWN) instr.push_back(RIGHT);
+               
+                cdir = LEFT;  // Update direction
+            }
+            printf("?\n");
+
+            instr.push_back(MOVE);  // Move forward
+
+            // Update current row and column
+            cr = nr;
+            cc = nc;
+        }
+
+        return instr;
+    }
 
     /**
      * @brief updates memory array based on observation at a point. Memory is always
-     * up to date.
+     * up to date. I have no idea how or why this works but it seems to hold up after
+     * testing so I'm just not gonna fuck with it.
      * 
      * @param w: walls
      */
@@ -309,6 +466,28 @@ public:
         }
     }
 
+    // Movement API
+
+    void turn_left() {
+        if (dir == RIGHT) dir == UP;
+        if (dir == UP) dir == LEFT;
+        if (dir == LEFT) dir == DOWN;
+        if (dir == DOWN) dir == RIGHT;
+    }
+
+    void turn_right() {
+        if (dir == RIGHT) dir == DOWN;
+        if (dir == DOWN) dir == LEFT;
+        if (dir == LEFT) dir == UP;
+        if (dir == UP) dir == RIGHT;
+    }
+
+    void move_straight() {
+        if (dir == RIGHT) mouse_c++;
+        if (dir == LEFT) mouse_c--;
+        if (dir == UP) mouse_c--;
+        if (dir == DOWN) mouse_c++;
+    } 
 
 };
 
@@ -317,18 +496,39 @@ void adj_test() {
     Navigator n;
 
     n.print_real_maze();
-    n.print_mem_maze();
 
     auto walls = n.sense();
     n.sense_update(walls);
 
-    n.mouse_c = 0;
-    n.mouse_r = 0;
+    n.mouse_r = 3;
+    n.mouse_c = 3;
+    n.dir = UP;
     walls = n.sense();
     n.sense_update(walls);
     n.print_mem_maze();
 }
 
+void floodfill_test() {
+    Navigator n;
+    n.print_real_maze();
+
+    for (int i = 0; i < 10; i++) {
+        vector<int> path = n.floodfill(index(n.mouse_r, n.mouse_c));
+        vector<int> instr = n.generate_instr(path);
+
+        for (int in : instr) {
+            if (in == LEFT) n.turn_left();
+            if (in == RIGHT) n.turn_right();
+            if (in == MOVE) n.move_straight();
+            
+            auto walls = n.sense();
+            n.sense_update(walls);
+        }
+
+        n.print_mem_maze();
+    }
+}
+
 int main() {
-    adj_test();
+    floodfill_test();
 }
