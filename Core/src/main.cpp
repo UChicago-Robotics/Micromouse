@@ -260,10 +260,12 @@ const double TURN_THRESHOLD = 2;
 int stableCount = 0;
 int method = 1;
 double cumYaw = 0;
+
 void printstr(String s){
     Serial.println(s);
     bt_loop(s);
 }
+
 void control() {
     if (motor.isInMotion()) {
         // only do things when inMotion
@@ -468,7 +470,7 @@ void loop() {
     Serial.println("\t\t\t"+ String(pickedup()));
     BLE.poll();
     int currTime = millis();
-    if (!motor.isInMotion() && currTime - last > 2000) {
+    if (!motor.isInMotion() && currTime - last > 2000 && false) {
         if (justTurned) {
 
             motor.driveStraight(14, 50); 
