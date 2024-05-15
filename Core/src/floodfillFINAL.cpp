@@ -396,10 +396,10 @@ public:
                 cdir = UP;
 
             } else if (nr == cr + 1 && nc == cc) { // Face down
-                if (cdir == DOWN) instr.insert(instr.end(), {RIGHT, RIGHT});
+                if (cdir == UP) instr.insert(instr.end(), {RIGHT, RIGHT});
                 if (cdir == LEFT) instr.push_back(LEFT);
                 if (cdir == RIGHT) instr.push_back(RIGHT);
-          
+
                 cdir = DOWN;
             } else if (nr == cr && nc == cc + 1) { // Face right
                 if (cdir == LEFT) instr.insert(instr.end(), {RIGHT, RIGHT});
@@ -520,6 +520,13 @@ void print_instr(vector<int> instr) {
     printf("\n");
 }
 
+void print_path(vector<int> path) {
+    for (int p : path) {
+        printf("(%d, %d) ", get_2d_pos(p)[0], get_2d_pos(p)[1]);
+    }
+    printf("\n");
+}
+
 void floodfill_test() {
     Navigator n;
     n.print_real_maze();
@@ -528,6 +535,7 @@ void floodfill_test() {
         vector<int> path = n.floodfill(index(n.mouse_r, n.mouse_c));
         vector<int> instr = n.generate_instr(path);
         print_instr(instr);
+        print_path(path);
 
         for (int in : instr) {
             if (in == LEFT) n.turn_left();
