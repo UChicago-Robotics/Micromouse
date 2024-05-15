@@ -358,6 +358,8 @@ public:
             next_layer = {};
         }
 
+        if (closest == -1) return {};
+
         // find nearested unvisited node with shortest distance to center
         /*
         vector<int> closest_to_center = {0, INT16_MAX};
