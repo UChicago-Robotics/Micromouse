@@ -71,5 +71,8 @@ class SensorController {
         float getAz();
         float getGz();
         void calibrate();
+        bool isLWall();
+        bool isFWall();
+        bool isRWall();
 };
 #endif

@@ -5,14 +5,14 @@
 #ifndef MOTOR_H
 #define MOTOR_H
 const double BASE_WIDTH = 9.25;
-const double WHEEL_DIAM = 3.3;
-const double WHEEL_CIRC = M_PI * 3.3;
+const double WHEEL_DIAM = 7;//3.3;
+const double WHEEL_CIRC = M_PI * 7;//3.3;
 const int TICKS_PER_REV = 360;
 class MotorController {
     private:
         Encoder encR = Encoder(RR_ENC, RL_ENC);
         Encoder encL = Encoder(LR_ENC, LL_ENC);
-        PIDController wheelPID = PIDController(20, 0, 0);  // stupid but works - may require tuning later at high speeds etc, testing at 50
+        PIDController wheelPID = PIDController(10, 0, 0);  // stupid but works - may require tuning later at high speeds etc, testing at 50
         PIDController turnPID = PIDController(0.3, 0, 0);
         int encLTicks = 0;
         int encRTicks = 0;
@@ -46,7 +46,7 @@ class MotorController {
         bool isInTurn();
         void setInMotion(bool a);
         void setInTurn(bool a);
-        void driveStraight(int dist, int bSpeed);
+        void driveStraight(double dist, int bSpeed);
         double wheelPIDfeedback(double diff, double difft);
         double turnPIDfeedback(double diff, double difft);
         void turnToYaw(int yaw);

@@ -77,7 +77,7 @@ long int MotorController::getLastRun() {
     return this->lastRun;
 }
 
-void MotorController::driveStraight(int dist, int bSpeed) {
+void MotorController::driveStraight(double dist, int bSpeed) {
     // add task to drive with dist and bSpeed
     // left-biased driving straight
     this->inMotion = true;

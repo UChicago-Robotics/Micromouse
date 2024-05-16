@@ -17,8 +17,8 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->LLs = 0;
     this->LL_cutoff = 5; // cutoff for missing wall
     this->RR_cutoff = 5;
-    this->RF_cutoff = 240;
-    this->LF_cutoff = 250;
+    this->RF_cutoff = 230;
+    this->LF_cutoff = 230;
     this->LL_coeff = .05; // weighting of wall dist vs encoder diff
     this->RR_coeff = .05;
     this->RF_coeff = .1;
@@ -340,4 +340,14 @@ float SensorController::getGz(){
 
 float SensorController::getYawDeg() {
     return this->mahony.yaw * 57.29578f;
+}
+
+bool SensorController::isLWall() {
+    return (this->LL - this->LL_base > -40);
+}
+bool SensorController::isFWall() {
+    return ((this->LF > this->LF_cutoff) && (this->RF > this->RF_cutoff));
+}
+bool SensorController::isRWall() {
+    return (this->RR - this->RR_base > -40);
 }
