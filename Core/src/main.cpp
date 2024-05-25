@@ -303,25 +303,12 @@ void control() {
             printstr("\t\t\t\tLW:" + String(lastLW,2) + " RW:" + String(lastRW,2));
             bool cond;
             // OLD SCHEME - gives equal weight to all 3 cases where might stop early
-            // bool wallGapNotTriggered = (l - lastLW <= 3 || lastLW < 0) && (l - lastRW <= 3 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
-            // bool frontWallNotTriggered = (l < .6 * L || sensor.getLFs() < sensor.getLFCut()) &&  (l < .6 * L || sensor.getRFs() < sensor.getRFCut()); // ie not close to wall or not at end for both
-            // bool distanceNotTriggered = l < L; // not there yet
-            // printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
-            // cond = wallGapNotTriggered && frontWallNotTriggered && distanceNotTriggered;
-            // // NEW SCHEME - default to avoid crashes based on wall gap and front wall, otherwise distance
-            if (lastLW > 0) {
-                cond = l-lastLW < 3;
-                printstr("Cond Left Gap:" + String(cond));
-            } else if (lastRW > 0) {
-                cond = l-lastRW < 3;
-                printstr("Cond Right Gap:" + String(cond));
-            } else if (sensor.getLFs() > sensor.getLFCut() || sensor.getRFs() > sensor.getRFCut()) {
-                cond = false;
-                printstr("Cond Front Wall:" + String(cond));
-            } else {
-                cond = l < L;
-                printstr("Cond Distance:" + String(cond));
-            }
+            bool wallGapNotTriggered = (l - lastLW <= 3 || lastLW < 0) && (l - lastRW <= 3 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
+            bool frontWallNotTriggered = (l < .6 * L || sensor.getLFs() < sensor.getLFCut()) &&  (l < .6 * L || sensor.getRFs() < sensor.getRFCut()); // ie not close to wall or not at end for both
+            bool distanceNotTriggered = l < L; // not there yet
+            printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
+            cond = wallGapNotTriggered && frontWallNotTriggered && distanceNotTriggered;
+
             if (cond) {
                 // only drive if l < L and it's not too close to the wall beyond X% of the way to the next
                 // motor differential

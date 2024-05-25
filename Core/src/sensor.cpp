@@ -15,12 +15,12 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RFs = 0;
     this->LFs = 0;
     this->LLs = 0;
-    this->LL_cutoff = 0; // cutoff for missing wall
-    this->RR_cutoff = 0;
+    this->LL_cutoff = -20; // cutoff for missing wall
+    this->RR_cutoff = -20;
     this->RF_cutoff = 230;
     this->LF_cutoff = 230;
-    this->LL_coeff = .15; // weighting of wall dist vs encoder diff
-    this->RR_coeff = .15;
+    this->LL_coeff = .02; // weighting of wall dist vs encoder diff
+    this->RR_coeff = .02;
     this->RF_coeff = .1;
     this->LF_coeff = .1;
 
