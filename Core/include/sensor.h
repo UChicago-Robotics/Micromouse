@@ -74,5 +74,7 @@ class SensorController {
         bool isLWall();
         bool isFWall();
         bool isRWall();
+        float CFWall();
+
 };
 #endif

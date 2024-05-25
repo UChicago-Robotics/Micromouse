@@ -93,14 +93,14 @@ void setup() {
     Serial.println("READY");
 }
 
-std::array<bool, 3> readCurrentWalls() {
+Wall readCurrentWalls() {
     // Example logic to generate boolean values
     // 1 = wall there, 0 = not
     sensor.read();
     sensor.push();
-    bool L = sensor.isLWall();
-    bool F = sensor.isFWall();
-    bool R = sensor.isRWall();
+    int L = sensor.isLWall();
+    int F = sensor.isFWall();
+    int R = sensor.isRWall();
     return {L,F,R};
 }
 
@@ -178,14 +178,35 @@ double last_l = 0;
 int stabilisedL = 1;
 // handling gap calculation
 double lastLW = -1; // < 0 means currently is a wall
-bool wasLastLW = false;
+int wasLastLW = 0;
 double lastRW = -1;
-bool wasLastRW = false;
+int wasLastRW = 0;
 
 
 void printstr(String s){
     Serial.println(s);
-    bt_loop(s);
+    bt_loop("<"+String(millis()) + ">"+s);
+}
+String stackstr(std::stack<Task> s) {
+    String out = "STACK:";
+    while (!s.empty()) {
+        Task pstr = s.top();
+        out += "(";
+        switch(pstr.instr) {
+            case DRIVE_STRAIGHT:
+                out += "STRAIGHT";
+                break;
+            case TURN_LEFT:
+                out += "LEFT";
+                break;
+            case TURN_RIGHT:
+                out += "RIGHT";
+                break;
+        }
+        out += "," + String(pstr.value) + "),";
+        s.pop();
+    }
+    return out;
 }
 
 void control() {
@@ -213,7 +234,7 @@ void control() {
                         if (motor.getTargetYaw() < 0) {prefact = 1;}
                         motor.setSpeed(turn_speed*prefact,turn_speed*prefact*-1);
                         float tYawF = motor.getTargetYaw(); // final target
-                        float tYaw = tYawF*.33; // when to start coasting
+                        float tYaw = tYawF*.27; // when to start coasting
                         if (fabs(cumYaw) < fabs(tYaw)) { 
                             sensor.readIMU();
                             long int curr_time = micros();
@@ -264,26 +285,44 @@ void control() {
             double l = motor.getEncL();
             double r = motor.getEncR();
             double Lfinal = motor.getTargetL();
-            double L = .66*Lfinal;
+            double threshdist = .66;
+            double L = threshdist*Lfinal;
             sensor.read();
             sensor.push();
             // if there is currently a wall, keep "last Wall" at -1, if there is not a wall track when it disappeared (and then substract distance later to get the distance travelled past the wall)
             if (sensor.isLWall()) {
                 lastLW = -1;
-            } else {
-                if (lastLW < 0) {
-                    lastLW = l;
-                }
+            } else if (lastLW < 0) {
+                lastLW = l;
             }
             if (sensor.isRWall()) {
                 lastRW = -1;
-            } else {
-                if (lastRW < 0) {
-                    lastRW = l;
-                }
+            } else if (lastRW < 0) {
+                lastRW = l;
             }
             printstr("\t\t\t\tLW:" + String(lastLW,2) + " RW:" + String(lastRW,2));
-            if (l < L && (l < .6 * L || sensor.getLFs() < sensor.getLFCut()) &&  (l < .6 * L || sensor.getRFs() < sensor.getRFCut())) {
+            bool cond;
+            // OLD SCHEME - gives equal weight to all 3 cases where might stop early
+            // bool wallGapNotTriggered = (l - lastLW <= 3 || lastLW < 0) && (l - lastRW <= 3 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
+            // bool frontWallNotTriggered = (l < .6 * L || sensor.getLFs() < sensor.getLFCut()) &&  (l < .6 * L || sensor.getRFs() < sensor.getRFCut()); // ie not close to wall or not at end for both
+            // bool distanceNotTriggered = l < L; // not there yet
+            // printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
+            // cond = wallGapNotTriggered && frontWallNotTriggered && distanceNotTriggered;
+            // // NEW SCHEME - default to avoid crashes based on wall gap and front wall, otherwise distance
+            if (lastLW > 0) {
+                cond = l-lastLW < 3;
+                printstr("Cond Left Gap:" + String(cond));
+            } else if (lastRW > 0) {
+                cond = l-lastRW < 3;
+                printstr("Cond Right Gap:" + String(cond));
+            } else if (sensor.getLFs() > sensor.getLFCut() || sensor.getRFs() > sensor.getRFCut()) {
+                cond = false;
+                printstr("Cond Front Wall:" + String(cond));
+            } else {
+                cond = l < L;
+                printstr("Cond Distance:" + String(cond));
+            }
+            if (cond) {
                 // only drive if l < L and it's not too close to the wall beyond X% of the way to the next
                 // motor differential
                 double diffEnc = l - r;
@@ -321,10 +360,11 @@ void control() {
                 motor.setLastRun(ct);
                 // printstr("t " + String(ct) + ",dt " + String(dt) + ",l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
                 printstr(sensor.dumpIRString());
-            }
-            else {
+            } else {
                 motor.setSpeed(0, 0);
-                if (stabilisedL % 50 == 0) {
+                lastLW = -1;
+                lastRW = -1;
+                if (stabilisedL % 20 == 0) {
                     last_l = l;
                 }
                 ++stabilisedL;
@@ -332,17 +372,10 @@ void control() {
                     motor.setInMotion(false);
                     // if straight, find how much off from target
                     addon = Lfinal - l;
-                    // if walls disappeared while driving, calculate distance since they disappeared
-                    if (lastLW > 0) {
-                        lastLW = l - lastLW;
-                    }
-                    if (lastRW > 0) {
-                        lastRW = l - lastRW;
-                    }
-                    printstr("addon: " + String(addon,2) + " lastLW:" + String(lastLW,2)+ " lastRW:" + String(lastRW,2));
                 }
             } 
         }
+        printstr(sensor.dumpIRString());
     }
 }
 
@@ -353,7 +386,7 @@ void loop() {
     // Serial.println("\t\t\t"+ String(pickedup()));
     BLE.poll();
     int currTime = millis();
-    if (!motor.isInMotion() && currTime - lastTime > 2000) {
+    if (!motor.isInMotion() && currTime - lastTime > 1200) {
         // if stack empty read walls
         // do stack
 
@@ -369,24 +402,20 @@ void loop() {
             // push adjustment if necessary
         // --> straight
             // push straight + addon
+        Wall currentWalls = readCurrentWalls();
+        printstr("addon: " + String(addon,2) + " lastLW:" + String(lastLW,2)+ " lastRW:" + String(lastRW,2) + " wasLastLW:" + String(wasLastLW) + " wasLastRW:" + String(wasLastRW));
         if (taskstack.empty()) {
-            std::array<bool,3> currentWalls = readCurrentWalls();
-            printstr("If there's wall: L:" + String(currentWalls[0]) + "\tF:" + String(currentWalls[1]) + "\tR:" + String(currentWalls[2]));
-            if (!currentWalls[0]) {
+            printstr("<<<<<<DECISION>>>>>>");
+            printstr("If there's wall: L:" + String(currentWalls.left) + "\tF:" + String(currentWalls.front) + "\tR:" + String(currentWalls.right));
+            if (!currentWalls.left) {
                 printstr("Left Turn Pushed");
                 taskstack.push({DRIVE_STRAIGHT,18});
                 taskstack.push({TURN_LEFT,-1});
-                if (fabs(9-lastLW) > 2.5 && wasLastLW) {
-                    taskstack.push({DRIVE_STRAIGHT,9-lastLW});
-                }
-            } else if (!currentWalls[2]) {
+            } else if (!currentWalls.right) {
                 printstr("Right Turn Pushed");
                 taskstack.push({DRIVE_STRAIGHT,18});
                 taskstack.push({TURN_RIGHT,-1});
-                if (fabs(9-lastRW) > 2.5 && wasLastRW) {
-                    taskstack.push({DRIVE_STRAIGHT,9-lastRW});
-                }
-            } else if (!currentWalls[1]) { 
+            } else if (!currentWalls.front) { 
                 printstr("Straight Pushed");
                 taskstack.push({DRIVE_STRAIGHT,18+addon});
             } else {
@@ -394,11 +423,16 @@ void loop() {
                 taskstack.push({TURN_LEFT,-1});
                 taskstack.push({TURN_LEFT,-1});
             }
-            wasLastLW = currentWalls[0]; // ie don't mistake passing the post for a wall 
-            wasLastRW = currentWalls[2];
-            lastLW = -1;
-            lastRW = -1;
+            // but first if front wall too close move back
+            printstr("FRONTWALL THINGY: " + String(sensor.CFWall(),3));
+            if (currentWalls.front && sensor.CFWall() > 100) {
+                taskstack.push({DRIVE_STRAIGHT,sensor.CFWall()*(-.025)});
+            }
+            addon = 0;
         }
+        wasLastLW = currentWalls.left;
+        wasLastRW = currentWalls.right;
+        printstr(stackstr(taskstack));
         Task instruction = taskstack.top();
         if (instruction.instr == DRIVE_STRAIGHT) {
             printstr("Driving Straight (" + String(instruction.value,2) + ")...");
