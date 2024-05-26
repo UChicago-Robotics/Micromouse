@@ -28,7 +28,7 @@ int cells = 0;
 int lastTime = 0;
 bool justTurned = false;
 bool preturned = true;  // false if needs to adjust, true if good
-int drivingSpeed = 40;
+int drivingSpeed = 40; //40 in 5x5
 void setup() {
     Serial.begin(115200);
 
@@ -225,14 +225,14 @@ void control() {
             }
             case 1:  // gyro based "turndeg"
             {
-                double turn_speed = 45;  // anything less stalls it
+                double turn_speed = 45; //45 in 5x5 // anything less stalls it
                 double prefact = -1;
                 if (motor.getTargetYaw() < 0) {
                     prefact = 1;
                 }
                 motor.setSpeed(turn_speed * prefact, turn_speed * prefact * -1);
                 float tYawF = motor.getTargetYaw();  // final target
-                float tYaw = tYawF * .8;          // when to start coasting
+                float tYaw = tYawF * .8; // .8 on 5x5 when to start coasting
                 if (fabs(cumYaw) < fabs(tYaw)) {
                     sensor.readIMU();
                     long int curr_time = micros();
@@ -243,7 +243,7 @@ void control() {
                     motor.setSpeed(- 20 * prefact, 20 * prefact);
                     // } TODO
                     // if (fabs(cumYaw) > fabs(.9*tYawF)) { // TODO needs compensation break
-                    delay(1000);
+                    delay(300);
                     motor.setSpeed(0, 0);
                     cumYaw = 0;
                     motor.setInMotion(false);
@@ -284,7 +284,7 @@ void control() {
         double l = motor.getEncL();
         double r = motor.getEncR();
         double Lfinal = motor.getTargetL();
-        double threshdist = 0.82;
+        double threshdist = .82; // .82 on 5x5
         double L = threshdist * Lfinal;
         sensor.read();
         sensor.push();
@@ -303,7 +303,7 @@ void control() {
         // printstr("\t\t\t\tLW:" + String(lastLW, 2) + " RW:" + String(lastRW, 2));
         bool cond;
         // OLD SCHEME - gives equal weight to all 3 cases where might stop early
-        bool wallGapNotTriggered = (l - lastLW <= 8 || lastLW < 0) && (l - lastRW <= 8 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
+        bool wallGapNotTriggered = (l - lastLW <= 10 || lastLW < 0) && (l - lastRW <= 10 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
         bool frontWallNotTriggered = !sensor.isFWallBrake();
         bool distanceNotTriggered = l < L;      // not there yet
         printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
@@ -342,7 +342,7 @@ void control() {
             motor.setSpeed(-20, -20);
             lastLW = -1;
             lastRW = -1;
-            delay(1000);
+            delay(300);
             motor.setSpeed(0, 0);
             motor.setInMotion(false);
             // addon = Lfinal - l;

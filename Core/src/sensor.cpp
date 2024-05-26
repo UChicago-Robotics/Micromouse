@@ -339,7 +339,7 @@ float SensorController::getYawDeg() {
 }
 
 bool SensorController::isLWall() {
-    return (this->LL - this->LL_base > -60);
+    return (this->LL - this->LL_base > -70);
 }
 bool SensorController::isFWall() {
     return ((this->LF > this->LF_cutoff) && (this->RF > this->RF_cutoff));
@@ -351,5 +351,5 @@ float SensorController::CFWall() { // close f
     return ((this->LF - this->LF_cutoff) + (this->RF - this->RF_cutoff))/2;
 }
 bool SensorController::isRWall() {
-    return (this->RR - this->RR_base > -60);
+    return (this->RR - this->RR_base > -70);
 }
