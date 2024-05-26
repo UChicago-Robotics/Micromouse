@@ -1,18 +1,16 @@
+#include <stack>
+#include <vector>
+
 #include "Arduino.h"
 #include "ArduinoBLE.h"
 #include "Arduino_BMI270_BMM150.h"
 #include "Wire.h"
+#include "algo.h"
 #include "comm.h"
 #include "const.h"
 #include "motor.h"
 #include "pid.h"
 #include "sensor.h"
-#include "pid.h"
-#include "motor.h"
-#include "comm.h"
-#include "algo.h"
-#include <vector>
-#include <stack>
 #define DEBUGGING false
 struct Task {
     Instruction instr;
@@ -21,15 +19,17 @@ struct Task {
 
 SensorController sensor(3, 0.1);
 MotorController motor;
+Navigator nav;
 int pickedup_hysteresis = 10;
 int pickedup_counter = 0;
 bool picked = false;
 // BluetoothController bt;
-std::vector<int> nav = {0,1,1,0,-1,0,-1,0,0};
+std::vector<int> nav = {0, 1, 1, 0, -1, 0, -1, 0, 0};
 int cells = 0;
 int lastTime = 0;
 bool justTurned = false;
-bool preturned = true; // false if needs to adjust, true if good
+bool preturned = true;  // false if needs to adjust, true if good
+int drivingSpeed = 50;
 void setup() {
     Serial.begin(115200);
 
@@ -62,7 +62,7 @@ void setup() {
     pinMode(LL_IRi, INPUT);
     pinMode(LF_IRi, INPUT);
     // buttons
-    pinMode(ONOFF, INPUT_PULLDOWN); // wired to be a pulldown of ONE of the batteries
+    pinMode(ONOFF, INPUT_PULLDOWN);  // wired to be a pulldown of ONE of the batteries
     pinMode(BUTTON_1, INPUT_PULLDOWN);
     pinMode(BUTTON_2, INPUT_PULLDOWN);
 
@@ -87,9 +87,9 @@ void setup() {
     digitalWrite(LEDB, HIGH);
 
     bt_setup();
-    //Serial.println("Finished initializing bluetooth.");
+    // Serial.println("Finished initializing bluetooth.");
 
-    //TODO make based on when switch flipped
+    // TODO make based on when switch flipped
     Serial.println("READY");
 }
 
@@ -101,7 +101,7 @@ Wall readCurrentWalls() {
     int L = sensor.isLWall();
     int F = sensor.isFWall();
     int R = sensor.isRWall();
-    return {L,F,R};
+    return {L, F, R};
 }
 
 int buttonMode() {
@@ -115,16 +115,16 @@ int buttonMode() {
         Serial.println("ON");
         if (digitalRead(BUTTON_1)) {
             Serial.println("\t\tMAPPING");
-            buttonmode+=1;
+            buttonmode += 1;
         } else {
             Serial.println("\t\tRACING");
-            buttonmode+=2;
+            buttonmode += 2;
         }
         if (digitalRead(BUTTON_2)) {
-            Serial.println("\t\t\t\tALGO 1"); // place holder
+            Serial.println("\t\t\t\tALGO 1");  // place holder
         } else {
-            Serial.println("\t\t\t\tALGO 2"); // place holder
-            buttonmode+=10;
+            Serial.println("\t\t\t\tALGO 2");  // place holder
+            buttonmode += 10;
         }
     } else {
         Serial.println("OFF");
@@ -134,7 +134,7 @@ int buttonMode() {
 
 bool pickedup() {
     // reads gyro and makes sure is on the ground WITH HYSTERESIS HANDLING
-    if (fabs(sensor.getAz()-1) > .03 && fabs(sensor.getAx()) > .03 && fabs(sensor.getAy()) > .03) { // transient pickup
+    if (fabs(sensor.getAz() - 1) > .03 && fabs(sensor.getAx()) > .03 && fabs(sensor.getAy()) > .03) {  // transient pickup
         if (!picked) {
             pickedup_counter++;
             if (pickedup_counter > pickedup_hysteresis) {
@@ -142,7 +142,7 @@ bool pickedup() {
             }
         } else {
             pickedup_counter = 0;
-        }  
+        }
     } else {
         if (picked) {
             pickedup_counter++;
@@ -151,7 +151,7 @@ bool pickedup() {
             }
         } else {
             pickedup_counter = 0;
-        }  
+        }
     }
     if (picked) {
         digitalWrite(LEDR, LOW);
@@ -177,22 +177,17 @@ double addon = 0;
 double last_l = 0;
 int stabilisedL = 1;
 // handling gap calculation
-double lastLW = -1; // < 0 means currently is a wall
+double lastLW = -1;  // < 0 means currently is a wall
 int wasLastLW = 0;
 double lastRW = -1;
 int wasLastRW = 0;
 
-
-void printstr(String s){
-    Serial.println(s);
-    bt_loop("<"+String(millis()) + ">"+s);
-}
 String stackstr(std::stack<Task> s) {
     String out = "STACK:";
     while (!s.empty()) {
         Task pstr = s.top();
         out += "(";
-        switch(pstr.instr) {
+        switch (pstr.instr) {
             case DRIVE_STRAIGHT:
                 out += "STRAIGHT";
                 break;
@@ -210,164 +205,163 @@ String stackstr(std::stack<Task> s) {
 }
 
 void control() {
-    if (motor.isInMotion()) {
-        // only do things when inMotion
-        if (motor.isInTurn()) {
-            switch (method) {
-                case 0: // time based
-                    {
-                        long int start_time = millis();
-                        int coef = (motor.getTargetYaw() > 0) ? 1 : -1;
-                        motor.setSpeed(- coef * motor.mturnSpeed(), coef * motor.mturnSpeed());
-                        while (millis()-start_time < motor.getTurnTime()) {
-                        }
-                        motor.setSpeed(0,0);
+    if (!motor.isInMotion()) return;
+    if (motor.isInTurn()) {
+        switch (method) {
+            case 0:  // time based
+            {
+                long int start_time = millis();
+                int coef = (motor.getTargetYaw() > 0) ? 1 : -1;
+                motor.setSpeed(-coef * motor.mturnSpeed(), coef * motor.mturnSpeed());
+                while (millis() - start_time < motor.getTurnTime()) {
+                }
+                motor.setSpeed(0, 0);
+                motor.setInMotion(false);
+                motor.setInTurn(false);
+                break;
+            }
+            case 1:  // gyro based "turndeg"
+            {
+                long int hold_time = micros();
+                double turn_speed = 55;  // anything less stalls it
+                double prefact = -1;
+                if (motor.getTargetYaw() < 0) {
+                    prefact = 1;
+                }
+                motor.setSpeed(turn_speed * prefact, turn_speed * prefact * -1);
+                float tYawF = motor.getTargetYaw();  // final target
+                float tYaw = tYawF * .18;            // when to start coasting
+                if (fabs(cumYaw) < fabs(tYaw)) {
+                    sensor.readIMU();
+                    long int curr_time = micros();
+                    cumYaw += (float)(.000001) * sensor.getGz() * (curr_time - hold_time);
+                    hold_time = curr_time;
+                    printstr("TargYaw: " + String(motor.getTargetYaw(), 2) + " Cum Yaw: " + String(cumYaw, 2));
+                } else {
+                    motor.setSpeed(0, 0);
+                    // } TODO
+                    // if (fabs(cumYaw) > fabs(.9*tYawF)) { // TODO needs compensation break
+                    cumYaw = 0;
+                    motor.setInMotion(false);
+                    motor.setInTurn(false);
+                }
+                break;
+            }
+            case 2:  // "PID" "stablecount"
+            {
+                // turning motion
+                double diff = fmod((motor.getTargetYaw() - sensor.getYawDeg() + 720), 360);
+                int coef = (diff < 180) ? 1 : -1;
+                double dAngle = (diff < 180) ? diff : (360 - diff);
+                if (fabs(dAngle) > TURN_THRESHOLD) {
+                    stableCount = 0;
+                    // if still out of tolerance range
+                    long int ct = millis();
+                    int dt = ct - motor.getLastRun() + 1;
+                    motor.setSpeed(-coef * motor.mturnSpeed(), coef * motor.mturnSpeed());
+                    printstr("dir: " + String(coef) + " diff: " + String(diff, 2) + " dt: " + String(dt));
+                    printstr("TargYaw: " + String(motor.getTargetYaw(), 2) + " Yaw: " + String(sensor.getYawDeg(), 2) + "dir: " + String(coef) + " dAngle: " + String(dAngle, 2) + " dt: " + String(dt) + "gz: " + String(sensor.getGz(), 2) + "imu dt: " + String(sensor.runTime));
+                    motor.setLastRun(ct);
+                } else {
+                    stableCount++;
+
+                    if (stableCount >= 2) {
                         motor.setInMotion(false);
                         motor.setInTurn(false);
-                        break;
-                    }   
-                case 1: // gyro based "turndeg"
-                    {
-                        long int hold_time = micros();
-                        double turn_speed = 55; // anything less stalls it
-                        double prefact = -1;
-                        if (motor.getTargetYaw() < 0) {prefact = 1;}
-                        motor.setSpeed(turn_speed*prefact,turn_speed*prefact*-1);
-                        float tYawF = motor.getTargetYaw(); // final target
-                        float tYaw = tYawF*.27; // when to start coasting
-                        if (fabs(cumYaw) < fabs(tYaw)) { 
-                            sensor.readIMU();
-                            long int curr_time = micros();
-                            cumYaw += (float)(.000001)*sensor.getGz()*(curr_time-hold_time);
-                            hold_time = curr_time;
-                            printstr("TargYaw: " + String(motor.getTargetYaw(), 2) + " Cum Yaw: " + String(cumYaw, 2));
-                        } else {
-                            motor.setSpeed(0,0);
-                        // } TODO
-                        // if (fabs(cumYaw) > fabs(.9*tYawF)) { // TODO needs compensation break
-                            cumYaw = 0;
-                            motor.setInMotion(false);
-                            motor.setInTurn(false);
-                        }
-                        break;
+                        motor.setSpeed(0, 0);
+                        stableCount = 0;
                     }
-                case 2: // "PID" "stablecount"
-                    {
-                        // turning motion
-                        double diff = fmod((motor.getTargetYaw() - sensor.getYawDeg() + 720), 360);
-                        int coef = (diff < 180) ? 1 : -1;
-                        double dAngle = (diff < 180) ? diff : (360 - diff);
-                        if ( fabs(dAngle) > TURN_THRESHOLD) {
-                            stableCount = 0;
-                            // if still out of tolerance range
-                            long int ct = millis();
-                            int dt = ct - motor.getLastRun() + 1;
-                            motor.setSpeed(- coef * motor.mturnSpeed(), coef * motor.mturnSpeed());
-                            printstr("dir: " + String(coef) + " diff: " + String(diff, 2) + " dt: " + String(dt));
-                            printstr("TargYaw: " + String(motor.getTargetYaw(), 2) + " Yaw: " + String(sensor.getYawDeg(), 2) + "dir: " + String(coef) + " dAngle: " + String(dAngle, 2) + " dt: " + String(dt) + "gz: " + String(sensor.getGz(), 2) + "imu dt: " + String(sensor.runTime));
-                            motor.setLastRun(ct);
-                        } else {
-                            stableCount++;
-
-                            if (stableCount >= 2) {
-                                motor.setInMotion(false);
-                                motor.setInTurn(false);
-                                motor.setSpeed(0, 0);
-                                stableCount = 0;
-                            }
-                        }
-                        break;
-                    }
-            }
-        } else {
-            // driving motion
-            motor.read();
-            double l = motor.getEncL();
-            double r = motor.getEncR();
-            double Lfinal = motor.getTargetL();
-            double threshdist = .66;
-            double L = threshdist*Lfinal;
-            sensor.read();
-            sensor.push();
-            // if there is currently a wall, keep "last Wall" at -1, if there is not a wall track when it disappeared (and then substract distance later to get the distance travelled past the wall)
-            if (sensor.isLWall()) {
-                lastLW = -1;
-            } else if (lastLW < 0) {
-                lastLW = l;
-            }
-            if (sensor.isRWall()) {
-                lastRW = -1;
-            } else if (lastRW < 0) {
-                lastRW = l;
-            }
-            printstr("\t\t\t\tLW:" + String(lastLW,2) + " RW:" + String(lastRW,2));
-            bool cond;
-            // OLD SCHEME - gives equal weight to all 3 cases where might stop early
-            bool wallGapNotTriggered = (l - lastLW <= 3 || lastLW < 0) && (l - lastRW <= 3 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
-            bool frontWallNotTriggered = (l < .6 * L || sensor.getLFs() < sensor.getLFCut()) &&  (l < .6 * L || sensor.getRFs() < sensor.getRFCut()); // ie not close to wall or not at end for both
-            bool distanceNotTriggered = l < L; // not there yet
-            printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
-            cond = wallGapNotTriggered && frontWallNotTriggered && distanceNotTriggered;
-
-            if (cond) {
-                // only drive if l < L and it's not too close to the wall beyond X% of the way to the next
-                // motor differential
-                double diffEnc = l - r;
-                // wall differential
-
-                float diffLWall = sensor.getLLs()-sensor.getBaseL();
-                float diffRWall = sensor.getRRs()-sensor.getBaseR();
-
-                float LWcontrib = 0;
-                if (diffLWall > sensor.getLLCut()) {
-                    LWcontrib = diffLWall*sensor.getLLCoeff();
                 }
-                float RWcontrib = 0;
-                if (diffRWall > sensor.getRRCut()) {
-                    RWcontrib = diffRWall*sensor.getRRCoeff();
-                } 
-                float totalDiff = diffEnc - LWcontrib + RWcontrib;
-                
-                long int ct = millis();
-                int dt = ct - motor.getLastRun() + 1;
-                double op = motor.wheelPIDfeedback(totalDiff, dt);
-                double ls = motor.getBaseSpeed();
-                double rs = ls + op;
-                
-                // ramps down speed linearly until target
-                // https://www.desmos.com/calculator/50fkyhu6ek
-                // double frac = .8;
-                // double lowspeed = motor.getMinSpeed();
-                // if (l > frac*L) {
-                //     ls = (lowspeed-ls)*l/(L*(1-frac)) + lowspeed - (lowspeed - ls)/(1-frac);
-                //     rs = (lowspeed-rs)*l/(L*(1-frac)) + lowspeed - (lowspeed - rs)/(1-frac);
-                // }
-
-                motor.setSpeed(ls,rs);
-                motor.setLastRun(ct);
-                // printstr("t " + String(ct) + ",dt " + String(dt) + ",l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
-                printstr(sensor.dumpIRString());
-            } else {
-                motor.setSpeed(0, 0);
-                lastLW = -1;
-                lastRW = -1;
-                if (stabilisedL % 20 == 0) {
-                    last_l = l;
-                }
-                ++stabilisedL;
-                if (fabs(l-last_l) < .1) {//TODO way to get out of stop
-                    motor.setInMotion(false);
-                    // if straight, find how much off from target
-                    addon = Lfinal - l;
-                }
-            } 
+                break;
+            }
         }
-        printstr(sensor.dumpIRString());
+    } else {
+        // driving motion
+        motor.read();
+        double l = motor.getEncL();
+        double r = motor.getEncR();
+        double Lfinal = motor.getTargetL();
+        double threshdist = .66;
+        double L = threshdist * Lfinal;
+        sensor.read();
+        sensor.push();
+        // if there is currently a wall, keep "last Wall" at -1, if there is not a wall track when it disappeared (and then substract distance later to get the distance travelled past the wall)
+        if (sensor.isLWall()) {
+            lastLW = -1;
+        } else if (lastLW < 0) {
+            lastLW = l;
+        }
+        if (sensor.isRWall()) {
+            lastRW = -1;
+        } else if (lastRW < 0) {
+            lastRW = l;
+        }
+        printstr("\t\t\t\tLW:" + String(lastLW, 2) + " RW:" + String(lastRW, 2));
+        bool cond;
+        // OLD SCHEME - gives equal weight to all 3 cases where might stop early
+        bool wallGapNotTriggered = (l - lastLW <= 3 || lastLW < 0) && (l - lastRW <= 3 || lastRW < 0);              // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
+        bool frontWallNotTriggered = (sensor.getLF() < sensor.getLFCut()) && (sensor.getRF() < sensor.getRFCut());  // ie not close to wall or not at end for both
+        bool distanceNotTriggered = l < L;                                                                          // not there yet
+        printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
+        cond = wallGapNotTriggered && frontWallNotTriggered && distanceNotTriggered;
+
+        if (cond) {
+            // only drive if l < L and it's not too close to the wall beyond X% of the way to the next
+            // motor differential
+            double diffEnc = l - r;
+            // wall differential
+
+            float diffLWall = sensor.getLLs() - sensor.getBaseL();
+            float diffRWall = sensor.getRRs() - sensor.getBaseR();
+
+            float LWcontrib = 0;
+            if (diffLWall > sensor.getLLCut()) {
+                LWcontrib = diffLWall * sensor.getLLCoeff();
+            }
+            float RWcontrib = 0;
+            if (diffRWall > sensor.getRRCut()) {
+                RWcontrib = diffRWall * sensor.getRRCoeff();
+            }
+            float totalDiff = diffEnc - LWcontrib + RWcontrib;
+
+            long int ct = millis();
+            int dt = ct - motor.getLastRun() + 1;
+            double op = motor.wheelPIDfeedback(totalDiff, dt);
+            double ls = motor.getBaseSpeed();
+            double rs = ls + op;
+
+            // ramps down speed linearly until target
+            // https://www.desmos.com/calculator/50fkyhu6ek
+            // double frac = .8;
+            // double lowspeed = motor.getMinSpeed();
+            // if (l > frac*L) {
+            //     ls = (lowspeed-ls)*l/(L*(1-frac)) + lowspeed - (lowspeed - ls)/(1-frac);
+            //     rs = (lowspeed-rs)*l/(L*(1-frac)) + lowspeed - (lowspeed - rs)/(1-frac);
+            // }
+
+            motor.setSpeed(ls, rs);
+            motor.setLastRun(ct);
+            // printstr("t " + String(ct) + ",dt " + String(dt) + ",l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
+            // printstr(sensor.dumpIRString());
+        } else {
+            motor.setSpeed(0, 0);
+            lastLW = -1;
+            lastRW = -1;
+            if (stabilisedL % 20 == 0) {
+                last_l = l;
+            }
+            ++stabilisedL;
+            if (fabs(l - last_l) < .1) {  // TODO way to get out of stop
+                motor.setInMotion(false);
+                // if straight, find how much off from target
+                addon = Lfinal - l;
+            }
+        }
     }
+    printstr(sensor.dumpIRString());
 }
 
 void loop() {
-
     sensor.readIMU();
     // Serial.println("\t" + String(buttonMode()));
     // Serial.println("\t\t\t"+ String(pickedup()));
@@ -380,57 +374,104 @@ void loop() {
         // read walls
         // floodfill
         // --> left turn
-            // push straight 18
-            // push left turn
-            // push adjustment if necessary
+        // push straight 18
+        // push left turn
+        // push adjustment if necessary
         // --> right turn
-            // push straigh 18
-            // push right turn
-            // push adjustment if necessary
+        // push straigh 18
+        // push right turn
+        // push adjustment if necessary
         // --> straight
-            // push straight + addon
+        // push straight + addon
         Wall currentWalls = readCurrentWalls();
-        printstr("addon: " + String(addon,2) + " lastLW:" + String(lastLW,2)+ " lastRW:" + String(lastRW,2) + " wasLastLW:" + String(wasLastLW) + " wasLastRW:" + String(wasLastRW));
+        printstr("addon: " + String(addon, 2) + " lastLW:" + String(lastLW, 2) + " lastRW:" + String(lastRW, 2) + " wasLastLW:" + String(wasLastLW) + " wasLastRW:" + String(wasLastRW));
         if (taskstack.empty()) {
-            printstr("<<<<<<DECISION>>>>>>");
-            printstr("If there's wall: L:" + String(currentWalls.left) + "\tF:" + String(currentWalls.front) + "\tR:" + String(currentWalls.right));
-            if (!currentWalls.left) {
-                printstr("Left Turn Pushed");
-                taskstack.push({DRIVE_STRAIGHT,18});
-                taskstack.push({TURN_LEFT,-1});
-            } else if (!currentWalls.right) {
-                printstr("Right Turn Pushed");
-                taskstack.push({DRIVE_STRAIGHT,18});
-                taskstack.push({TURN_RIGHT,-1});
-            } else if (!currentWalls.front) { 
-                printstr("Straight Pushed");
-                taskstack.push({DRIVE_STRAIGHT,18+addon});
+            // if don't know what to do
+            printstr("<<DECISION>>\nIf there's wall: L:" + String(currentWalls.left) + "\tF:" + String(currentWalls.front) + "\tR:" + String(currentWalls.right));
+
+            if (digitalRead(ONOFF)) {
+                nav.newLoop();
+
+                nav.importWall(currentWalls);
+
+                nav.reflood();
+
+                Instruction instr = nav.giveInstruction();
+                printstr("Received: " + printInstruction(instr));
+
+                switch (instr) {
+                    case DRIVE_STRAIGHT:
+                        taskstack.push({DRIVE_STRAIGHT, 18 + addon});
+                        break;
+                    case TURN_LEFT: {
+                        taskstack.push({TURN_LEFT, -1});
+                        addon = 0;
+                        break;
+                    }
+                    case TURN_RIGHT: {
+                        taskstack.push({TURN_RIGHT, -1});
+                        addon = 0;
+                        break;
+                    }
+                    case TURN_AROUND: {
+                        taskstack.push({TURN_AROUND, -1});
+                        addon = 0;
+                        break;
+                    }
+                }
+
+                // assuming direction is completed successfully.
+                nav.performInstruction(instr);
             } else {
-                printstr("Turning Around Pushed");
-                taskstack.push({TURN_LEFT,-1});
-                taskstack.push({TURN_LEFT,-1});
+                if (!currentWalls.left) {
+                    printstr("Left Turn Pushed");
+                    taskstack.push({DRIVE_STRAIGHT, 18});
+                    taskstack.push({TURN_LEFT, -1});
+                } else if (!currentWalls.right) {
+                    printstr("Right Turn Pushed");
+                    taskstack.push({DRIVE_STRAIGHT, 18});
+                    taskstack.push({TURN_RIGHT, -1});
+                } else if (!currentWalls.front) {
+                    printstr("Straight Pushed");
+                    taskstack.push({DRIVE_STRAIGHT, 18 + addon});
+                } else {
+                    printstr("Turning Around Pushed");
+                    taskstack.push({TURN_LEFT, -1});
+                    taskstack.push({TURN_LEFT, -1});
+                }
+
+                // but first if front wall too close move back
+                // printstr("FRONTWALL THINGY: " + String(sensor.CFWall(),3));
+                // if (currentWalls.front && sensor.CFWall() > 100) {
+                //     taskstack.push({DRIVE_STRAIGHT,sensor.CFWall()*(-.025)});
+                // }
             }
-            // but first if front wall too close move back
-            printstr("FRONTWALL THINGY: " + String(sensor.CFWall(),3));
-            if (currentWalls.front && sensor.CFWall() > 100) {
-                taskstack.push({DRIVE_STRAIGHT,sensor.CFWall()*(-.025)});
-            }
-            addon = 0;
         }
         wasLastLW = currentWalls.left;
         wasLastRW = currentWalls.right;
         printstr(stackstr(taskstack));
         Task instruction = taskstack.top();
-        if (instruction.instr == DRIVE_STRAIGHT) {
-            printstr("Driving Straight (" + String(instruction.value,2) + ")...");
-            motor.driveStraight(instruction.value,50);
-            motor.setSpeed(motor.mdriveSpeed()*1.1,motor.mdriveSpeed()*1.1);
-        } else if (instruction.instr == TURN_LEFT) {
-            printstr("Turning Left...");
-            motor.turnToYaw(90);
-        } else {
-            printstr("Turning Right...");
-            motor.turnToYaw(-90);
+        switch (instruction.instr) {
+            case DRIVE_STRAIGHT: {
+                printstr("Driving Straight (" + String(instruction.value, 2) + ")...");
+                motor.driveStraight(instruction.value, drivingSpeed);
+                break;
+            }
+            case TURN_LEFT: {
+                printstr("Turning Left...");
+                motor.turnToYaw(90);
+                break;
+            }
+            case TURN_RIGHT: {
+                printstr("Turning Right...");
+                motor.turnToYaw(-90);
+                break;
+            }
+            case TURN_AROUND: {
+                printstr("Turning Around...");
+                motor.turnToYaw(180);
+                break;
+            }
         }
         taskstack.pop();
         delay(250);

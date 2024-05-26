@@ -35,6 +35,8 @@ void bt_setup() {
 
     Serial.println("Done initializing Bluetooth controller in bt_setup().");
 }
-void bt_loop(String data) {
-    characteristic.writeValue(data.c_str());
+void printstr(String data) {
+    String s = "<" + String(millis()) + ">" + data;
+    Serial.println(s);
+    characteristic.writeValue(s.c_str());
 }

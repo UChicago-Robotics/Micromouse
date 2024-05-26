@@ -1,5 +1,6 @@
 #include "algo.h"
-
+#include "Arduino.h"
+#include "comm.h"
 #include <algorithm>
 #include <iostream>
 #include <queue>
@@ -11,24 +12,26 @@ using namespace std;
 typedef pair<int, int> ii;
 
 
-void printWall(Wall w) {
-    std::cerr << "Wall: L: " << w.left << ", F: " << w.front << ", R: " << w.right << std::endl;
+String printWall(Wall w) {
+    return "Wall: L: " + String(w.left) + ", F: " + String(w.front) + ", R: " + String(w.right);
 }
 
-void printInstruction(Instruction d) {
-    std::string s;
+String printInstruction(Instruction d) {
+    String s = "";
     switch (d) {
         case DRIVE_STRAIGHT:
-            s = "Drive Straight";
+            s = "DRIVE_STRAIGHT";
             break;
         case TURN_LEFT:
-            s = "Turn Left";
+            s = "TURN_LEFT";
             break;
         case TURN_RIGHT:
-            s = "Turn Right";
+            s = "TURN_RIGHT";
             break;
+        case TURN_AROUND:
+            s = "TURN_AROUND"
     }
-    std::cerr << "Instruction: " << s << std::endl;
+    return "Instruction: " + s;
 }
 
 char orientation_to_char(Orientation o) {
@@ -109,11 +112,8 @@ Navigator::Navigator() {
 
 void Navigator::newLoop() {
     seen[index(mouse_r, mouse_c)] = true;
-    // API::setColor(mouse_c, mouse_r, 'Y');
-    cerr << "Current pos: mouse_r: " << mouse_r << ", mouse_c: " << mouse_c << ", orientation: " << orientation_to_char(orientation) << endl;
+    printstr("Current pos: mouse_r: " +  String(mouse_r) + ", mouse_c: " + String(mouse_c) + ", orientation: " + orientation_to_char(orientation));
 }
-
-
 
 Instruction Navigator::giveInstruction() {
     if (justTurned) {
@@ -148,7 +148,7 @@ Instruction Navigator::giveInstruction() {
         ++count;
     }
 
-    cerr << "targr :" << targr << " targc: " << targc << " flood: " << currmin << endl;
+    // cerr << "targr :" << targr << " targc: " << targc << " flood: " << currmin << endl;
     Orientation targO;
     if (targr > mouse_r) targO = NORTH;
 
@@ -161,12 +161,13 @@ Instruction Navigator::giveInstruction() {
     // if at correct orientation, then drive straight
     // else, turn the correct way
     // note left is positive
-    cerr << "targO: " << orientation_to_char(targO) << " curr orientation: " << orientation_to_char(orientation) << endl;
+    // cerr << "targO: " << orientation_to_char(targO) << " curr orientation: " << orientation_to_char(orientation) << endl;
 
     // warning! don't change the logic here
     // funky
     if (targO == orientation) return DRIVE_STRAIGHT;
     if (targO == add_orientation(orientation, 1)) return TURN_LEFT;
+    if (targO == add_orientation(orientation, 2)) return TURN_AROUND;
     return TURN_RIGHT;
 }
 
@@ -282,8 +283,7 @@ void Navigator::setWall(int r, int c, Orientation o, int val) {
 // so that the walls can be imported correctly
 void Navigator::importWall(Wall w) {
     // using current position and orientation
-    cerr << "importing walls ";
-    printWall(w);
+    printstr("Importing walls: " + printWall(w));
     setWall(mouse_r, mouse_c, orientation, w.front);
     setWall(mouse_r, mouse_c, left_of(orientation), w.left);
     setWall(mouse_r, mouse_c, right_of(orientation), w.right);

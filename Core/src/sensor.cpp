@@ -15,8 +15,8 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RFs = 0;
     this->LFs = 0;
     this->LLs = 0;
-    this->LL_cutoff = -20; // cutoff for missing wall
-    this->RR_cutoff = -20;
+    this->LL_cutoff = 10; // cutoff for missing wall
+    this->RR_cutoff = 10;
     this->RF_cutoff = 230;
     this->LF_cutoff = 230;
     this->LL_coeff = .02; // weighting of wall dist vs encoder diff
@@ -347,7 +347,7 @@ bool SensorController::isLWall() {
 }
 bool SensorController::isFWall() {
     return ((this->LF > this->LF_cutoff) && (this->RF > this->RF_cutoff));
-}
+}   
 float SensorController::CFWall() { // close f
     return ((this->LF - this->LF_cutoff) + (this->RF - this->RF_cutoff))/2;
 }

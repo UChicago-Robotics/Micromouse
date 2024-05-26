@@ -1,3 +1,4 @@
+#include "Arduino.h"
 #include <algorithm>
 #include <iostream>
 #include <vector>
@@ -14,7 +15,8 @@ const int MOD_ORIENTATION = 4;
 enum Instruction {
     DRIVE_STRAIGHT = 0,
     TURN_LEFT = 1,
-    TURN_RIGHT = -1
+    TURN_RIGHT = -1,
+    TURN_AROUND = 2
 };
 
 struct Wall {
@@ -37,8 +39,8 @@ enum Mode {
     RERETRACE = 2
 };
 
-void printWall(Wall w);
-void printInstruction(Instruction d);
+String printWall(Wall w);
+String printInstruction(Instruction d);
 
 class Navigator {
    public:
