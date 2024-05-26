@@ -28,19 +28,12 @@ int cells = 0;
 int lastTime = 0;
 bool justTurned = false;
 bool preturned = true;  // false if needs to adjust, true if good
-int drivingSpeed = 35;
+int drivingSpeed = 40;
 double turn_speed = 40; 
 double threshdist = .75;
-double turnratio = .75;
+double turnratio = .7;
 
-bool BIGMAZE = true;
 void setup() {
-    if (BIGMAZE) {
-        drivingSpeed = 40;
-        turn_speed = 40;
-        threshdist = .75;
-        turnratio = .65;
-    }
     Serial.begin(115200);
 
     // RED: BEFORE SET UP
@@ -342,11 +335,11 @@ void control() {
             float diffRWall = sensor.getRRs() - sensor.getBaseR();
 
             float LWcontrib = 0;
-            if (fabs(diffLWall) > sensor.getLLCut()) {
+            if (diffLWall > sensor.getLLCut()) {
                 LWcontrib = diffLWall * sensor.getLLCoeff();
             }
             float RWcontrib = 0;
-            if (fabs(diffRWall) > sensor.getRRCut()) {
+            if (diffRWall > sensor.getRRCut()) {
                 RWcontrib = diffRWall * sensor.getRRCoeff();
             }
             float totalDiff = diffEnc - LWcontrib + RWcontrib;
@@ -359,7 +352,7 @@ void control() {
 
             motor.setSpeed(lspeed, rspeed);
             motor.setLastRun(ct);
-            // printstr("l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
+            printstr("l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
         } else {
             printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
             motor.setSpeed(-20, -20);
