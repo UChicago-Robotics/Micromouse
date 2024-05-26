@@ -95,8 +95,8 @@ void setup() {
 Wall readCurrentWalls() {
     // Example logic to generate boolean values
     // 1 = wall there, 0 = not
-    sensor.read();
-    sensor.push();
+    // sensor.read();
+    // sensor.push();
     int L = sensor.isLWall();
     int F = sensor.isFWall();
     int R = sensor.isRWall();
@@ -283,10 +283,10 @@ void control() {
         double l = motor.getEncL();
         double r = motor.getEncR();
         double Lfinal = motor.getTargetL();
-        double threshdist = .66;
+        double threshdist = 1;
         double L = threshdist * Lfinal;
-        sensor.read();
-        sensor.push();
+        // sensor.read();
+        // sensor.push();
         // if there is currently a wall, keep "last Wall" at -1, if there is not a wall track when it disappeared (and then substract distance later to get the distance travelled past the wall)
         if (sensor.isLWall()) {
             lastLW = -1;
@@ -302,8 +302,8 @@ void control() {
         bool cond;
         // OLD SCHEME - gives equal weight to all 3 cases where might stop early
         bool wallGapNotTriggered = (l - lastLW <= 3 || lastLW < 0) && (l - lastRW <= 3 || lastRW < 0);              // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
-        bool frontWallNotTriggered = (sensor.getLF() < sensor.getLFCut()) && (sensor.getRF() < sensor.getRFCut());  // ie not close to wall or not at end for both
-        bool distanceNotTriggered = l < L;                                                                          // not there yet
+        bool frontWallNotTriggered = !sensor.isFWallBrake();
+        bool distanceNotTriggered = l < L;      // not there yet
         printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
         cond = wallGapNotTriggered && frontWallNotTriggered && distanceNotTriggered;
 
@@ -346,7 +346,7 @@ void control() {
             // printstr("t " + String(ct) + ",dt " + String(dt) + ",l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
             // printstr(sensor.dumpIRString());
         } else {
-            motor.setSpeed(0, 0);
+            motor.setSpeed(-18, -18);
             lastLW = -1;
             lastRW = -1;
             if (stabilisedL % 20 == 0) {
@@ -354,37 +354,25 @@ void control() {
             }
             ++stabilisedL;
             if (fabs(l - last_l) < .1) {  // TODO way to get out of stop
+                motor.setSpeed(0, 0);
                 motor.setInMotion(false);
                 // if straight, find how much off from target
                 addon = Lfinal - l;
             }
         }
     }
-    printstr(sensor.dumpIRString());
 }
 
 void loop() {
-    sensor.readIMU();
+    int currTime = millis();
+    BLE.poll();
     // Serial.println("\t" + String(buttonMode()));
     // Serial.println("\t\t\t"+ String(pickedup()));
-    BLE.poll();
-    int currTime = millis();
-    if (!motor.isInMotion() && currTime - lastTime > 1200) {
-        // if stack empty read walls
-        // do stack
-
-        // read walls
-        // floodfill
-        // --> left turn
-        // push straight 18
-        // push left turn
-        // push adjustment if necessary
-        // --> right turn
-        // push straigh 18
-        // push right turn
-        // push adjustment if necessary
-        // --> straight
-        // push straight + addon
+    sensor.readIMU();
+    sensor.read();
+    sensor.push();
+    printstr(sensor.dumpIRString());
+    if (!motor.isInMotion() && currTime - lastTime > 1200 && digitalRead(BUTTON_1)) {
         Wall currentWalls = readCurrentWalls();
         printstr("addon: " + String(addon, 2) + " lastLW:" + String(lastLW, 2) + " lastRW:" + String(lastRW, 2) + " wasLastLW:" + String(wasLastLW) + " wasLastRW:" + String(wasLastRW));
         if (taskstack.empty()) {
@@ -441,12 +429,6 @@ void loop() {
                     taskstack.push({TURN_LEFT, -1});
                     taskstack.push({TURN_LEFT, -1});
                 }
-
-                // but first if front wall too close move back
-                // printstr("FRONTWALL THINGY: " + String(sensor.CFWall(),3));
-                // if (currentWalls.front && sensor.CFWall() > 100) {
-                //     taskstack.push({DRIVE_STRAIGHT,sensor.CFWall()*(-.025)});
-                // }
             }
         }
         wasLastLW = currentWalls.left;
@@ -479,5 +461,5 @@ void loop() {
         delay(250);
         lastTime = currTime;
     }
-    control();
+    if (digitalRead(BUTTON_1)) control();
 }

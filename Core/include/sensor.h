@@ -18,7 +18,7 @@ class SensorController {
         float gx, gy, gz, ax, ay, az, roll, pitch, yaw;
         float LL_base, RR_base;
         float LL_cutoff, RR_cutoff, LF_cutoff, RF_cutoff; // cutoff for missing wall ("__ Wall absent")
-        float LL_coeff, RR_coeff, LF_coeff, RF_coeff;
+        float LL_coeff, RR_coeff, LF_brake, RF_brake;
         float mx, my, mz;
         float gx0, gy0, gz0;
         float ax0, ay0, az0;
@@ -73,6 +73,7 @@ class SensorController {
         void calibrate();
         bool isLWall();
         bool isFWall();
+        bool isFWallBrake();
         bool isRWall();
         float CFWall();
 

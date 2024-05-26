@@ -15,14 +15,16 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RFs = 0;
     this->LFs = 0;
     this->LLs = 0;
-    this->LL_cutoff = 10; // cutoff for missing wall
-    this->RR_cutoff = 10;
-    this->RF_cutoff = 230;
-    this->LF_cutoff = 230;
+    this->RF_cutoff = 330; // FOR RECOGNIZING WALL
+    this->LF_cutoff = 250;
+    this->RF_brake = 330; // FOR BRAKING IN FRONT OF WALL
+    this->LF_brake = 250;
+    // FOR AVOIDING WALLS WHEN DRIVING STRAIGHT
+    this->LL_cutoff = 20; // cutoff for missing wall
+    this->RR_cutoff = 20;
     this->LL_coeff = .02; // weighting of wall dist vs encoder diff
     this->RR_coeff = .02;
-    this->RF_coeff = .1;
-    this->LF_coeff = .1;
+
 
 
     this->sensorHistory = new int*[4];
@@ -315,12 +317,6 @@ float SensorController::getLLCoeff() {
 float SensorController::getRRCoeff() {
     return this->RR_coeff;
 }
-float SensorController::getLFCoeff() {
-    return this->LF_coeff;
-}
-float SensorController::getRFCoeff() {
-    return this->RF_coeff;
-}
 
 float SensorController::getAx() {
     return this->ax;
@@ -347,7 +343,10 @@ bool SensorController::isLWall() {
 }
 bool SensorController::isFWall() {
     return ((this->LF > this->LF_cutoff) && (this->RF > this->RF_cutoff));
-}   
+}
+bool SensorController::isFWallBrake() {
+    return ((this->LF > this->LF_brake) && (this->RF > this->RF_brake));
+}
 float SensorController::CFWall() { // close f
     return ((this->LF - this->LF_cutoff) + (this->RF - this->RF_cutoff))/2;
 }
