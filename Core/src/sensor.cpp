@@ -15,8 +15,8 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RFs = 0;
     this->LFs = 0;
     this->LLs = 0;
-    this->LF_cutoff = 153;
-    this->RF_cutoff = 225; // FOR RECOGNIZING WALL
+    this->LF_cutoff = 119;
+    this->RF_cutoff = 226; // FOR RECOGNIZING WALL
     this->RF_brake = this->RF_cutoff; // FOR BRAKING IN FRONT OF WALL
     this->LF_brake = this->LF_cutoff;
     // FOR AVOIDING WALLS WHEN DRIVING STRAIGHT
@@ -24,6 +24,8 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RR_cutoff = 50;
     this->LL_coeff = .004; // weighting of wall dist vs encoder diff
     this->RR_coeff = .004;
+    this->LL_basecut = -150;
+    this->RR_basecut = -116;
 
 
 
@@ -339,7 +341,7 @@ float SensorController::getYawDeg() {
 }
 
 bool SensorController::isLWall() {
-    return (this->LL - this->LL_base > -175); // -70
+    return (this->LL - this->LL_base > this->LL_basecut); // -70
 }
 bool SensorController::isFWall() {
     return ((this->LF > this->LF_cutoff) && (this->RF > this->RF_cutoff));
@@ -351,5 +353,5 @@ float SensorController::CFWall() { // close f
     return ((this->LF - this->LF_cutoff) + (this->RF - this->RF_cutoff))/2;
 }
 bool SensorController::isRWall() {
-    return (this->RR - this->RR_base > -100);
+    return (this->RR - this->RR_base > this->RR_basecut);
 }

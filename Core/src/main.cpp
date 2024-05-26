@@ -31,14 +31,14 @@ bool preturned = true;  // false if needs to adjust, true if good
 int drivingSpeed = 35;
 double turn_speed = 40; 
 double threshdist = .75;
-double turnratio = .7;
+double turnratio = .75;
 
 bool BIGMAZE = true;
 void setup() {
     if (BIGMAZE) {
         drivingSpeed = 40;
         turn_speed = 40;
-        threshdist = .7;
+        threshdist = .75;
         turnratio = .65;
     }
     Serial.begin(115200);
@@ -320,11 +320,16 @@ void control() {
         }
         // printstr("\t\t\t\tLW:" + String(lastLW, 2) + " RW:" + String(lastRW, 2));
         bool cond;
-        // OLD SCHEME - gives equal weight to all 3 cases where might stop early
-        bool wallGapNotTriggered = (l - lastLW <= 10 || lastLW < 0) && (l - lastRW <= 10 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
+       
+        bool wallGapNotTriggered = (l - lastLW <= 7 || lastLW < 0) && (l - lastRW <= 7 || lastRW < 0 ); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
         bool frontWallNotTriggered = !sensor.isFWallBrake();
-        bool distanceNotTriggered = l < L;      // not there yet
-        cond = wallGapNotTriggered && frontWallNotTriggered && distanceNotTriggered;
+        bool distanceNotTriggered = l < L; // not there yet
+
+        if (lastLW > 0  || lastRW > 0 ) {
+            cond = wallGapNotTriggered && frontWallNotTriggered;
+        } else {
+            cond = frontWallNotTriggered && distanceNotTriggered;
+        }
         // cond = frontWallNotTriggered && distanceNotTriggered;
 
         if (cond) {
@@ -337,11 +342,11 @@ void control() {
             float diffRWall = sensor.getRRs() - sensor.getBaseR();
 
             float LWcontrib = 0;
-            if (diffLWall > sensor.getLLCut()) {
+            if (fabs(diffLWall) > sensor.getLLCut()) {
                 LWcontrib = diffLWall * sensor.getLLCoeff();
             }
             float RWcontrib = 0;
-            if (diffRWall > sensor.getRRCut()) {
+            if (fabs(diffRWall) > sensor.getRRCut()) {
                 RWcontrib = diffRWall * sensor.getRRCoeff();
             }
             float totalDiff = diffEnc - LWcontrib + RWcontrib;
@@ -380,13 +385,29 @@ void control() {
     }
 }
 
+int deletedStatus = 0;
 void loop() {
     int currTime = millis();
     BLE.poll();
     sensor.readIMU();
     motor.read();
     Serial.println(String(digitalRead(ONOFF)) + " " + String(digitalRead(BUTTON_1)) + " " + String(digitalRead(BUTTON_2)));
-    if (pickedup()) nav.deleteInfo(5);
+    if (pickedup()) {
+        if (deletedStatus == 0) {
+            // have not deleted
+            nav.deleteInfo(5);
+            deletedStatus = 1;
+        }
+    } else {
+        if (deletedStatus == 1) {
+            // just put down
+            nav.mouse_r = 0;
+            nav.mouse_c = 0;
+            nav.orientation = NORTH;
+            delay(3000);
+            deletedStatus = 2;
+        }
+    }
     if (!digitalRead(BUTTON_2)) {
         sensor.read();
         sensor.push();
@@ -426,7 +447,7 @@ void loop() {
                         break;
                     }
                     case TURN_AROUND: {
-                        taskstack.push({WALL_ALIGN, -1});
+                        // taskstack.push({WALL_ALIGN, -1});
                         taskstack.push({TURN_LEFT, -1});
                         taskstack.push({TURN_LEFT, -1});
                         addon = 7;
@@ -450,7 +471,7 @@ void loop() {
                     taskstack.push({DRIVE_STRAIGHT, 18});
                 } else {
                     printstr("Turning Around Pushed");
-                    taskstack.push({WALL_ALIGN, -1});
+                    // taskstack.push({WALL_ALIGN, -1});
                     taskstack.push({TURN_LEFT, -1});
                     taskstack.push({TURN_LEFT, -1});
                 }

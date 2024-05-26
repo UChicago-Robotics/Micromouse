@@ -17,7 +17,7 @@ class SensorController {
         int currentIndex;     // Index to keep track of the current position to insert new data
         float gx, gy, gz, ax, ay, az, roll, pitch, yaw;
         float LL_base, RR_base;
-        float LL_cutoff, RR_cutoff, LF_cutoff, RF_cutoff; // cutoff for missing wall ("__ Wall absent")
+        float LL_cutoff, RR_cutoff, LF_cutoff, RF_cutoff, LL_basecut, RR_basecut; // cutoff for missing wall ("__ Wall absent")
         float LL_coeff, RR_coeff, LF_brake, RF_brake;
         float mx, my, mz;
         float gx0, gy0, gz0;
