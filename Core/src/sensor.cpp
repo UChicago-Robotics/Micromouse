@@ -15,13 +15,13 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RFs = 0;
     this->LFs = 0;
     this->LLs = 0;
-    this->RF_cutoff = 330; // FOR RECOGNIZING WALL
-    this->LF_cutoff = 250;
-    this->RF_brake = 330; // FOR BRAKING IN FRONT OF WALL
-    this->LF_brake = 250;
+    this->RF_cutoff = 250; // FOR RECOGNIZING WALL
+    this->LF_cutoff = 180;
+    this->RF_brake = this->RF_cutoff; // FOR BRAKING IN FRONT OF WALL
+    this->LF_brake = this->LF_cutoff;
     // FOR AVOIDING WALLS WHEN DRIVING STRAIGHT
-    this->LL_cutoff = 20; // cutoff for missing wall
-    this->RR_cutoff = 20;
+    this->LL_cutoff = 10; // cutoff for missing wall
+    this->RR_cutoff = 10;
     this->LL_coeff = .02; // weighting of wall dist vs encoder diff
     this->RR_coeff = .02;
 
@@ -241,7 +241,7 @@ String SensorController::dumpIMUString() {
 }
 String SensorController::dumpIRString() {
     // LFs,LLs,RRs,RFs, with 2 decimals of precision
-    return String(this->dt) + "\t IR: LFs: " + String(this->LFs,2) + ", LLs: " + String(this->LLs,2) + ", RRs: " + String(this->RRs,2) + ", RFs: " + String(this->RFs) + ", BaseL: " + String(this->LL_base, 2) + ", BaseR: " + String(this->RR_base, 2);
+    return String(this->dt) + "\t IR: LF: " + String(this->LF) + ", LL: " + String(this->LL) + ", RR: " + String(this->RR) + ", RF: " + String(this->RF) + ", BaseL: " + String(this->LL_base, 2) + ", BaseR: " + String(this->RR_base, 2);
 }
 
 void SensorController::calibrate() {
@@ -339,7 +339,7 @@ float SensorController::getYawDeg() {
 }
 
 bool SensorController::isLWall() {
-    return (this->LL - this->LL_base > -40);
+    return (this->LL - this->LL_base > -60);
 }
 bool SensorController::isFWall() {
     return ((this->LF > this->LF_cutoff) && (this->RF > this->RF_cutoff));
@@ -351,5 +351,5 @@ float SensorController::CFWall() { // close f
     return ((this->LF - this->LF_cutoff) + (this->RF - this->RF_cutoff))/2;
 }
 bool SensorController::isRWall() {
-    return (this->RR - this->RR_base > -40);
+    return (this->RR - this->RR_base > -60);
 }

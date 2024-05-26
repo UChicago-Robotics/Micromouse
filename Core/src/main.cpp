@@ -28,7 +28,7 @@ int cells = 0;
 int lastTime = 0;
 bool justTurned = false;
 bool preturned = true;  // false if needs to adjust, true if good
-int drivingSpeed = 50;
+int drivingSpeed = 40;
 void setup() {
     Serial.begin(115200);
 
@@ -174,12 +174,13 @@ double cumYaw = 0;
 // handling rollover on long straights
 double addon = 0;
 double last_l = 0;
-int stabilisedL = 1;
 // handling gap calculation
 double lastLW = -1;  // < 0 means currently is a wall
 int wasLastLW = 0;
 double lastRW = -1;
 int wasLastRW = 0;
+// hold time for turning
+long int hold_time;
 
 String stackstr(std::stack<Task> s) {
     String out = "STACK:";
@@ -224,25 +225,26 @@ void control() {
             }
             case 1:  // gyro based "turndeg"
             {
-                long int hold_time = micros();
-                double turn_speed = 55;  // anything less stalls it
+                double turn_speed = 45;  // anything less stalls it
                 double prefact = -1;
                 if (motor.getTargetYaw() < 0) {
                     prefact = 1;
                 }
                 motor.setSpeed(turn_speed * prefact, turn_speed * prefact * -1);
                 float tYawF = motor.getTargetYaw();  // final target
-                float tYaw = tYawF * .18;            // when to start coasting
+                float tYaw = tYawF * .8;          // when to start coasting
                 if (fabs(cumYaw) < fabs(tYaw)) {
                     sensor.readIMU();
                     long int curr_time = micros();
                     cumYaw += (float)(.000001) * sensor.getGz() * (curr_time - hold_time);
+                    // printstr("hold_time: " + String(curr_time - hold_time) + " TargYaw: " + String(motor.getTargetYaw(), 2) + " Cum Yaw: " + String(cumYaw, 2));
                     hold_time = curr_time;
-                    printstr("TargYaw: " + String(motor.getTargetYaw(), 2) + " Cum Yaw: " + String(cumYaw, 2));
                 } else {
-                    motor.setSpeed(0, 0);
+                    motor.setSpeed(- 20 * prefact, 20 * prefact);
                     // } TODO
                     // if (fabs(cumYaw) > fabs(.9*tYawF)) { // TODO needs compensation break
+                    delay(1000);
+                    motor.setSpeed(0, 0);
                     cumYaw = 0;
                     motor.setInMotion(false);
                     motor.setInTurn(false);
@@ -279,35 +281,35 @@ void control() {
         }
     } else {
         // driving motion
-        motor.read();
         double l = motor.getEncL();
         double r = motor.getEncR();
         double Lfinal = motor.getTargetL();
-        double threshdist = 0.8;
+        double threshdist = 0.82;
         double L = threshdist * Lfinal;
-        // sensor.read();
-        // sensor.push();
+        sensor.read();
+        sensor.push();
+        // printstr("In D: " + sensor.dumpIRString());
         // if there is currently a wall, keep "last Wall" at -1, if there is not a wall track when it disappeared (and then substract distance later to get the distance travelled past the wall)
         if (sensor.isLWall()) {
             lastLW = -1;
-        } else if (lastLW < 0) {
+        } else if (lastLW < 0 && wasLastLW) {
             lastLW = l;
         }
         if (sensor.isRWall()) {
             lastRW = -1;
-        } else if (lastRW < 0) {
+        } else if (lastRW < 0 && wasLastRW) {
             lastRW = l;
         }
         // printstr("\t\t\t\tLW:" + String(lastLW, 2) + " RW:" + String(lastRW, 2));
         bool cond;
         // OLD SCHEME - gives equal weight to all 3 cases where might stop early
-        bool wallGapNotTriggered = (l - lastLW <= 3 || lastLW < 0) && (l - lastRW <= 3 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
+        bool wallGapNotTriggered = (l - lastLW <= 8 || lastLW < 0) && (l - lastRW <= 8 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
         bool frontWallNotTriggered = !sensor.isFWallBrake();
         bool distanceNotTriggered = l < L;      // not there yet
         printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
         cond = wallGapNotTriggered && frontWallNotTriggered && distanceNotTriggered;
+        // cond = frontWallNotTriggered && distanceNotTriggered;
 
-        printstr("##### l: " + String(l, 2) + ", r: " + String(r, 2));
         if (cond) {
             // only drive if l < L and it's not too close to the wall beyond X% of the way to the next
             // motor differential
@@ -335,15 +337,16 @@ void control() {
 
             motor.setSpeed(lspeed, rspeed);
             motor.setLastRun(ct);
-            printstr("l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
+            // printstr("l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
         } else {
-            motor.setSpeed(-18, -18);
+            motor.setSpeed(-20, -20);
             lastLW = -1;
             lastRW = -1;
-            delay(100);
+            delay(1000);
             motor.setSpeed(0, 0);
             motor.setInMotion(false);
-            addon = Lfinal - l;
+            // addon = Lfinal - l;
+            addon = 0;
             // if (stabilisedL % 20 == 0) {
             //     last_l = l;
             // }
@@ -366,12 +369,20 @@ void loop() {
     // Serial.println("\t" + String(buttonMode()));
     // Serial.println("\t\t\t"+ String(pickedup()));
     sensor.readIMU();
-    sensor.read();
-    sensor.push();
-    printstr(sensor.dumpIRString());
+
+    motor.read();
+
+    if (false) {
+        sensor.read();
+        sensor.push();
+        printstr(sensor.dumpIRString());
+    }
     if (!motor.isInMotion() && currTime - lastTime > 1200 && digitalRead(BUTTON_2)) {
+        sensor.read();
+        sensor.push();
+        printstr(sensor.dumpIRString());
         Wall currentWalls = readCurrentWalls();
-        // printstr("addon: " + String(addon, 2) + " lastLW:" + String(lastLW, 2) + " lastRW:" + String(lastRW, 2) + " wasLastLW:" + String(wasLastLW) + " wasLastRW:" + String(wasLastRW));
+        printstr("lastLW:" + String(lastLW, 2) + " lastRW:" + String(lastRW, 2) + " wasLastLW:" + String(wasLastLW) + " wasLastRW:" + String(wasLastRW));
         if (taskstack.empty()) {
             // if don't know what to do
             printstr("<<DECISION>>\nIf there's wall: L:" + String(currentWalls.left) + "\tF:" + String(currentWalls.front) + "\tR:" + String(currentWalls.right));
@@ -433,8 +444,6 @@ void loop() {
         printstr(stackstr(taskstack));
         Task instruction = taskstack.top();
         motor.resetEncs();
-        printstr("motor.getEncL: " + String(motor.getEncL(), 2) + ", motor.getEncR: " + String(motor.getEncR(), 2));
-        delay(1000);
         switch (instruction.instr) {
             case DRIVE_STRAIGHT: {
                 printstr("Driving Straight (" + String(instruction.value, 2) + ")...");
@@ -444,21 +453,17 @@ void loop() {
             case TURN_LEFT: {
                 printstr("Turning Left...");
                 motor.turnToYaw(90);
+                hold_time = micros();
                 break;
             }
             case TURN_RIGHT: {
                 printstr("Turning Right...");
                 motor.turnToYaw(-90);
-                break;
-            }
-            case TURN_AROUND: {
-                printstr("Turning Around...");
-                motor.turnToYaw(180);
+                hold_time = micros();
                 break;
             }
         }
         taskstack.pop();
-        delay(1000);
         lastTime = currTime;
     }
     if (digitalRead(BUTTON_2)) control();

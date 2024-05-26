@@ -43,7 +43,7 @@ double MotorController::getEncR() {  // in cm
 }
 
 void MotorController::resetEncs() {
-    this->read();
+    // this->read();
     this->encLStart = this->encLTicks;
     this->encRStart = this->encRTicks;
 }
