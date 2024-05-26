@@ -82,7 +82,6 @@ void MotorController::driveStraight(double dist, int bSpeed) {
     // left-biased driving straight
     this->inMotion = true;
     this->isTurn = false;
-    this->resetEncs();
     this->targL = dist;
     this->baseSpeed = bSpeed;
     this->wheelPID.resetI();

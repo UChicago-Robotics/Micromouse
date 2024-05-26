@@ -283,7 +283,7 @@ void control() {
         double l = motor.getEncL();
         double r = motor.getEncR();
         double Lfinal = motor.getTargetL();
-        double threshdist = 1;
+        double threshdist = 0.8;
         double L = threshdist * Lfinal;
         // sensor.read();
         // sensor.push();
@@ -298,15 +298,16 @@ void control() {
         } else if (lastRW < 0) {
             lastRW = l;
         }
-        printstr("\t\t\t\tLW:" + String(lastLW, 2) + " RW:" + String(lastRW, 2));
+        // printstr("\t\t\t\tLW:" + String(lastLW, 2) + " RW:" + String(lastRW, 2));
         bool cond;
         // OLD SCHEME - gives equal weight to all 3 cases where might stop early
-        bool wallGapNotTriggered = (l - lastLW <= 3 || lastLW < 0) && (l - lastRW <= 3 || lastRW < 0);              // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
+        bool wallGapNotTriggered = (l - lastLW <= 3 || lastLW < 0) && (l - lastRW <= 3 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
         bool frontWallNotTriggered = !sensor.isFWallBrake();
         bool distanceNotTriggered = l < L;      // not there yet
         printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
         cond = wallGapNotTriggered && frontWallNotTriggered && distanceNotTriggered;
 
+        printstr("##### l: " + String(l, 2) + ", r: " + String(r, 2));
         if (cond) {
             // only drive if l < L and it's not too close to the wall beyond X% of the way to the next
             // motor differential
@@ -329,36 +330,32 @@ void control() {
             long int ct = millis();
             int dt = ct - motor.getLastRun() + 1;
             double op = motor.wheelPIDfeedback(totalDiff, dt);
-            double ls = motor.getBaseSpeed();
-            double rs = ls + op;
+            double lspeed = motor.getBaseSpeed();
+            double rspeed = lspeed + op;
 
-            // ramps down speed linearly until target
-            // https://www.desmos.com/calculator/50fkyhu6ek
-            // double frac = .8;
-            // double lowspeed = motor.getMinSpeed();
-            // if (l > frac*L) {
-            //     ls = (lowspeed-ls)*l/(L*(1-frac)) + lowspeed - (lowspeed - ls)/(1-frac);
-            //     rs = (lowspeed-rs)*l/(L*(1-frac)) + lowspeed - (lowspeed - rs)/(1-frac);
-            // }
-
-            motor.setSpeed(ls, rs);
+            motor.setSpeed(lspeed, rspeed);
             motor.setLastRun(ct);
-            // printstr("t " + String(ct) + ",dt " + String(dt) + ",l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
-            // printstr(sensor.dumpIRString());
+            printstr("l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
         } else {
             motor.setSpeed(-18, -18);
             lastLW = -1;
             lastRW = -1;
-            if (stabilisedL % 20 == 0) {
-                last_l = l;
-            }
-            ++stabilisedL;
-            if (fabs(l - last_l) < .1) {  // TODO way to get out of stop
-                motor.setSpeed(0, 0);
-                motor.setInMotion(false);
-                // if straight, find how much off from target
-                addon = Lfinal - l;
-            }
+            delay(100);
+            motor.setSpeed(0, 0);
+            motor.setInMotion(false);
+            addon = Lfinal - l;
+            // if (stabilisedL % 20 == 0) {
+            //     last_l = l;
+            // }
+            // ++stabilisedL;
+            // if (fabs(l - last_l) < .1) {  // TODO way to get out of stop
+            //     motor.setSpeed(0, 0);
+            //     motor.setInMotion(false);
+            //     // if straight, find how much off from target
+            //     addon = Lfinal - l;
+            //     printstr("Stopped motion: Lfinal: " + String(Lfinal, 2) + ", l: " + String(l, 2) + ", addon: " + String(addon, 2));
+            //     delay(1000);
+            // }
         }
     }
 }
@@ -372,9 +369,9 @@ void loop() {
     sensor.read();
     sensor.push();
     printstr(sensor.dumpIRString());
-    if (!motor.isInMotion() && currTime - lastTime > 1200 && digitalRead(BUTTON_1)) {
+    if (!motor.isInMotion() && currTime - lastTime > 1200 && digitalRead(BUTTON_2)) {
         Wall currentWalls = readCurrentWalls();
-        printstr("addon: " + String(addon, 2) + " lastLW:" + String(lastLW, 2) + " lastRW:" + String(lastRW, 2) + " wasLastLW:" + String(wasLastLW) + " wasLastRW:" + String(wasLastRW));
+        // printstr("addon: " + String(addon, 2) + " lastLW:" + String(lastLW, 2) + " lastRW:" + String(lastRW, 2) + " wasLastLW:" + String(wasLastLW) + " wasLastRW:" + String(wasLastRW));
         if (taskstack.empty()) {
             // if don't know what to do
             printstr("<<DECISION>>\nIf there's wall: L:" + String(currentWalls.left) + "\tF:" + String(currentWalls.front) + "\tR:" + String(currentWalls.right));
@@ -435,6 +432,9 @@ void loop() {
         wasLastRW = currentWalls.right;
         printstr(stackstr(taskstack));
         Task instruction = taskstack.top();
+        motor.resetEncs();
+        printstr("motor.getEncL: " + String(motor.getEncL(), 2) + ", motor.getEncR: " + String(motor.getEncR(), 2));
+        delay(1000);
         switch (instruction.instr) {
             case DRIVE_STRAIGHT: {
                 printstr("Driving Straight (" + String(instruction.value, 2) + ")...");
@@ -458,8 +458,8 @@ void loop() {
             }
         }
         taskstack.pop();
-        delay(250);
+        delay(1000);
         lastTime = currTime;
     }
-    if (digitalRead(BUTTON_1)) control();
+    if (digitalRead(BUTTON_2)) control();
 }
