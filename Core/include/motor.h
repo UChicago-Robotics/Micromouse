@@ -5,8 +5,8 @@
 #ifndef MOTOR_H
 #define MOTOR_H
 const double BASE_WIDTH = 9.25;
-const double WHEEL_DIAM = 7;//3.3;
-const double WHEEL_CIRC = M_PI * 7;//3.3;
+const double WHEEL_DIAM = 3.75;
+const double WHEEL_CIRC = M_PI * 3.75;
 const int TICKS_PER_REV = 360;
 class MotorController {
     private:

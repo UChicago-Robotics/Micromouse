@@ -28,8 +28,19 @@ int cells = 0;
 int lastTime = 0;
 bool justTurned = false;
 bool preturned = true;  // false if needs to adjust, true if good
-int drivingSpeed = 40; //40 in 5x5
+int drivingSpeed = 35;
+double turn_speed = 40; 
+double threshdist = .75;
+double turnratio = .7;
+
+bool BIGMAZE = true;
 void setup() {
+    if (BIGMAZE) {
+        drivingSpeed = 40;
+        turn_speed = 40;
+        threshdist = .7;
+        turnratio = .65;
+    }
     Serial.begin(115200);
 
     // RED: BEFORE SET UP
@@ -80,16 +91,25 @@ void setup() {
 
     Serial.println("Finished calibrating IMU");
 
+    bt_setup();
+    BLE.poll();
+    delay(10);
+    printstr("READY 1");
+    delay(500);
+    printstr("READY 2\n***********\n\n\n");
+    delay(500);
+
+
     // GREEN: DONE SET UP
     digitalWrite(LEDR, HIGH);
     digitalWrite(LEDG, LOW);
     digitalWrite(LEDB, HIGH);
 
-    bt_setup();
     // Serial.println("Finished initializing bluetooth.");
 
     // TODO make based on when switch flipped
-    Serial.println("READY");
+
+    
 }
 
 Wall readCurrentWalls() {
@@ -225,14 +245,13 @@ void control() {
             }
             case 1:  // gyro based "turndeg"
             {
-                double turn_speed = 45; //45 in 5x5 // anything less stalls it
                 double prefact = -1;
                 if (motor.getTargetYaw() < 0) {
                     prefact = 1;
                 }
                 motor.setSpeed(turn_speed * prefact, turn_speed * prefact * -1);
                 float tYawF = motor.getTargetYaw();  // final target
-                float tYaw = tYawF * .8; // .8 on 5x5 when to start coasting
+                float tYaw = tYawF * turnratio; // .8 on 5x5 when to start coasting
                 if (fabs(cumYaw) < fabs(tYaw)) {
                     sensor.readIMU();
                     long int curr_time = micros();
@@ -284,7 +303,6 @@ void control() {
         double l = motor.getEncL();
         double r = motor.getEncR();
         double Lfinal = motor.getTargetL();
-        double threshdist = .82; // .82 on 5x5
         double L = threshdist * Lfinal;
         sensor.read();
         sensor.push();
@@ -306,7 +324,6 @@ void control() {
         bool wallGapNotTriggered = (l - lastLW <= 10 || lastLW < 0) && (l - lastRW <= 10 || lastRW < 0); // ie last not initialized or not past cutoff ie 3 = 18*(threshdist-1/2) for both
         bool frontWallNotTriggered = !sensor.isFWallBrake();
         bool distanceNotTriggered = l < L;      // not there yet
-        printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
         cond = wallGapNotTriggered && frontWallNotTriggered && distanceNotTriggered;
         // cond = frontWallNotTriggered && distanceNotTriggered;
 
@@ -339,6 +356,7 @@ void control() {
             motor.setLastRun(ct);
             // printstr("l " + String(l, 2) + ", r " + String(r, 2) + ", sL " + String(diffLWall, 2) + ", sR " + String(diffRWall, 2) + ", dE " + String(diffEnc, 2) +  ", dL " + String(LWcontrib, 2) + ", dR " + String(RWcontrib, 2) + ", dT " + String(totalDiff, 2) + ", op " + String(op, 2));
         } else {
+            printstr("conditions: WallGap:" + String(wallGapNotTriggered) + " FrontWall:" + String(frontWallNotTriggered) + " Distance: " + String(distanceNotTriggered));
             motor.setSpeed(-20, -20);
             lastLW = -1;
             lastRW = -1;
@@ -369,10 +387,9 @@ void loop() {
     // Serial.println("\t" + String(buttonMode()));
     // Serial.println("\t\t\t"+ String(pickedup()));
     sensor.readIMU();
-
     motor.read();
-
-    if (false) {
+    Serial.println(String(digitalRead(ONOFF)) + " " + String(digitalRead(BUTTON_1)) + " " + String(digitalRead(BUTTON_2)));
+    if (!digitalRead(BUTTON_2)) {
         sensor.read();
         sensor.push();
         printstr(sensor.dumpIRString());
@@ -382,10 +399,10 @@ void loop() {
         sensor.push();
         printstr(sensor.dumpIRString());
         Wall currentWalls = readCurrentWalls();
-        printstr("lastLW:" + String(lastLW, 2) + " lastRW:" + String(lastRW, 2) + " wasLastLW:" + String(wasLastLW) + " wasLastRW:" + String(wasLastRW));
+        // printstr("lastLW:" + String(lastLW, 2) + " lastRW:" + String(lastRW, 2) + " wasLastLW:" + String(wasLastLW) + " wasLastRW:" + String(wasLastRW));
         if (taskstack.empty()) {
             // if don't know what to do
-            printstr("<<DECISION>>\nIf there's wall: L:" + String(currentWalls.left) + "\tF:" + String(currentWalls.front) + "\tR:" + String(currentWalls.right));
+            printstr("<<DECISION>> Current Walls: L:" + String(currentWalls.left) + "\tF:" + String(currentWalls.front) + "\tR:" + String(currentWalls.right));
 
             if (digitalRead(ONOFF)) {
                 nav.newLoop();
@@ -412,7 +429,8 @@ void loop() {
                         break;
                     }
                     case TURN_AROUND: {
-                        taskstack.push({TURN_AROUND, -1});
+                        taskstack.push({TURN_LEFT, -1});
+                        taskstack.push({TURN_LEFT, -1});
                         addon = 0;
                         break;
                     }
@@ -431,7 +449,7 @@ void loop() {
                     taskstack.push({TURN_RIGHT, -1});
                 } else if (!currentWalls.front) {
                     printstr("Straight Pushed");
-                    taskstack.push({DRIVE_STRAIGHT, 18 + addon});
+                    taskstack.push({DRIVE_STRAIGHT, 18});
                 } else {
                     printstr("Turning Around Pushed");
                     taskstack.push({TURN_LEFT, -1});

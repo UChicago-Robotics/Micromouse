@@ -37,6 +37,6 @@ void bt_setup() {
 }
 void printstr(String data) {
     String s = "<" + String(millis()) + ">" + data;
-    Serial.println(s);
+    // Serial.println(s);
     characteristic.writeValue(s.c_str());
 }
