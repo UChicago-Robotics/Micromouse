@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <unordered_set>
+#include <stack>
 using namespace std;
 const int MAZE_SIZE = 16;
 const int MAXR = MAZE_SIZE - 1;
@@ -16,7 +17,8 @@ enum Instruction {
     DRIVE_STRAIGHT = 0,
     TURN_LEFT = 1,
     TURN_RIGHT = -1,
-    TURN_AROUND = 2
+    TURN_AROUND = 2,
+    WALL_ALIGN = 4
 };
 
 struct Wall {
@@ -50,6 +52,7 @@ class Navigator {
     vector<vector<vector<int> > > knowledge;
     vector<int> flood;
     vector<unordered_set<int> > adjSet;
+    std::stack<int> seenVertices;
     Orientation orientation = NORTH;
     bool justTurned = false;
     Mode mode = SCAN;
@@ -61,4 +64,5 @@ class Navigator {
     void reflood();
     void newLoop();
     void calibrateMode();
+    void deleteInfo(int nSteps);
 };

@@ -217,8 +217,8 @@ String stackstr(std::stack<Task> s) {
             case TURN_RIGHT:
                 out += "RIGHT";
                 break;
-            case TURN_AROUND:
-                out += "AROUND";
+            case WALL_ALIGN:
+                out += "WALL_ALIGN";
                 break;
         }
         out += "," + String(pstr.value) + "),";
@@ -364,7 +364,6 @@ void control() {
             motor.setSpeed(0, 0);
             motor.setInMotion(false);
             // addon = Lfinal - l;
-            addon = 0;
             // if (stabilisedL % 20 == 0) {
             //     last_l = l;
             // }
@@ -384,11 +383,10 @@ void control() {
 void loop() {
     int currTime = millis();
     BLE.poll();
-    // Serial.println("\t" + String(buttonMode()));
-    // Serial.println("\t\t\t"+ String(pickedup()));
     sensor.readIMU();
     motor.read();
     Serial.println(String(digitalRead(ONOFF)) + " " + String(digitalRead(BUTTON_1)) + " " + String(digitalRead(BUTTON_2)));
+    if (pickedup()) nav.deleteInfo(5);
     if (!digitalRead(BUTTON_2)) {
         sensor.read();
         sensor.push();
@@ -417,21 +415,21 @@ void loop() {
                 switch (instr) {
                     case DRIVE_STRAIGHT:
                         taskstack.push({DRIVE_STRAIGHT, 18 + addon});
+                        addon = 0;
                         break;
                     case TURN_LEFT: {
                         taskstack.push({TURN_LEFT, -1});
-                        addon = 0;
                         break;
                     }
                     case TURN_RIGHT: {
                         taskstack.push({TURN_RIGHT, -1});
-                        addon = 0;
                         break;
                     }
                     case TURN_AROUND: {
+                        taskstack.push({WALL_ALIGN, -1});
                         taskstack.push({TURN_LEFT, -1});
                         taskstack.push({TURN_LEFT, -1});
-                        addon = 0;
+                        addon = 7;
                         break;
                     }
                 }
@@ -452,6 +450,7 @@ void loop() {
                     taskstack.push({DRIVE_STRAIGHT, 18});
                 } else {
                     printstr("Turning Around Pushed");
+                    taskstack.push({WALL_ALIGN, -1});
                     taskstack.push({TURN_LEFT, -1});
                     taskstack.push({TURN_LEFT, -1});
                 }
@@ -479,6 +478,12 @@ void loop() {
                 motor.turnToYaw(-90);
                 hold_time = micros();
                 break;
+            }
+            case WALL_ALIGN: { 
+                printstr("Wall Aligning...");
+                motor.setSpeed(-drivingSpeed*1.5, -drivingSpeed*1.5);
+                delay(2000);
+                motor.setSpeed(0, 0);
             }
         }
         taskstack.pop();

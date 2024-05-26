@@ -10,8 +10,8 @@ const int MOTOR_PINS[4] = {D2, D3, D4, D5};
 #define LOW 0
 
 // motor pins <POS><DIR>_MOTOR
-#define RB_MOTOR D4
-#define RF_MOTOR D5
+#define RB_MOTOR D5
+#define RF_MOTOR D4
 #define LF_MOTOR D3
 #define LB_MOTOR D2
 
@@ -22,14 +22,14 @@ const int MOTOR_PINS[4] = {D2, D3, D4, D5};
 #define RL_ENC A4
 
 // IR pins <POS><ORIENTATION>_IRi
-#define RF_IRi A0
-#define RR_IRi A1
-#define LL_IRi A2
-#define LF_IRi A3
-#define RF_IRo D12
-#define RR_IRo D11
-#define LL_IRo D10
-#define LF_IRo D9
+#define RF_IRi A1
+#define RR_IRi A0
+#define LL_IRi A3
+#define LF_IRi A2
+#define RF_IRo D11
+#define RR_IRo D12
+#define LL_IRo D9
+#define LF_IRo D10
 
 // button input
 #define ONOFF D6

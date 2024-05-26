@@ -112,6 +112,7 @@ Navigator::Navigator() {
 
 void Navigator::newLoop() {
     seen[index(mouse_r, mouse_c)] = true;
+    seenVertices.push(index(mouse_r, mouse_c));
     printstr("Current pos: mouse_r: " +  String(mouse_r) + ", mouse_c: " + String(mouse_c) + ", orientation: " + orientation_to_char(orientation));
 }
 
@@ -193,7 +194,6 @@ void Navigator::reflood() {
         int u = pq.top().second;
         pq.pop();
         for (auto v : adjSet[u]) {
-            int pen = 0;
             if (dist[v] > dist[u] + 1) {
                 dist[v] = dist[u] + 1;
                 pq.push(make_pair(dist[v], v));
@@ -246,6 +246,9 @@ void Navigator::setWall(int r, int c, Orientation o, int val) {
                 if (val == 1) {
                     adjSet[index(r, c)].erase(index(r + 1, c));
                     adjSet[index(r + 1, c)].erase(index(r, c));
+                } else {
+                    adjSet[index(r, c)].insert(index(r + 1, c));
+                    adjSet[index(r + 1, c)].insert(index(r, c));
                 }
             }
             break;
@@ -255,6 +258,9 @@ void Navigator::setWall(int r, int c, Orientation o, int val) {
                 if (val == 1) {
                     adjSet[index(r, c)].erase(index(r, c - 1));
                     adjSet[index(r, c - 1)].erase(index(r, c));
+                } else{
+                    adjSet[index(r, c)].insert(index(r, c - 1));
+                    adjSet[index(r, c - 1)].insert(index(r, c));
                 }
             }
             break;
@@ -264,6 +270,10 @@ void Navigator::setWall(int r, int c, Orientation o, int val) {
                 if (val == 1) {
                     adjSet[index(r, c)].erase(index(r - 1, c));
                     adjSet[index(r - 1, c)].erase(index(r, c));
+                } else {
+                    adjSet[index(r, c)].insert(index(r - 1, c));
+                    adjSet[index(r - 1, c)].insert(index(r, c));
+
                 }
             }
             break;
@@ -273,6 +283,9 @@ void Navigator::setWall(int r, int c, Orientation o, int val) {
                 if (val == 1) {
                     adjSet[index(r, c)].erase(index(r, c) + 1);
                     adjSet[index(r, c + 1)].erase(index(r, c));
+                } else {
+                    adjSet[index(r, c)].insert(index(r, c) + 1);
+                    adjSet[index(r, c + 1)].insert(index(r, c));
                 }
             }
             break;
@@ -294,4 +307,20 @@ void Navigator::calibrateMode() {
     if (mode == RETRACE && mouse_r == 0 && mouse_c == 0) mode = RERETRACE;
     // this might look stupid, but we'll see, cus we'll alternate between scanning
     // and retracing, but hopefully we'll find more routes on the way
+}
+
+void Navigator::deleteInfo(int nSteps) {
+    printstr("Deleting info for " + String(nSteps) + " most recent cells");
+    int counter = 0;
+    while(counter < nSteps && !this->seenVertices.empty()) {
+        int topCell = seenVertices.top();
+        int ri = getrc(topCell).first;
+        int ci = getrc(topCell).second;
+        setWall(ri, ci, NORTH, -1);
+        setWall(ri, ci, WEST, -1);
+        setWall(ri, ci, SOUTH, -1);
+        setWall(ri, ci, EAST, -1);
+        seenVertices.pop();
+        ++counter;
+    }
 }
