@@ -24,7 +24,6 @@ int pickedup_hysteresis = 10;
 int pickedup_counter = 0;
 bool picked = false;
 // BluetoothController bt;
-std::vector<int> nav = {0, 1, 1, 0, -1, 0, -1, 0, 0};
 int cells = 0;
 int lastTime = 0;
 bool justTurned = false;
@@ -196,6 +195,9 @@ String stackstr(std::stack<Task> s) {
                 break;
             case TURN_RIGHT:
                 out += "RIGHT";
+                break;
+            case TURN_AROUND:
+                out += "AROUND";
                 break;
         }
         out += "," + String(pstr.value) + "),";

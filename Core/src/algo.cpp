@@ -29,7 +29,7 @@ String printInstruction(Instruction d) {
             s = "TURN_RIGHT";
             break;
         case TURN_AROUND:
-            s = "TURN_AROUND"
+            s = "TURN_AROUND";
     }
     return "Instruction: " + s;
 }
