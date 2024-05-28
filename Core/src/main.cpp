@@ -443,7 +443,6 @@ void loop() {
                         // taskstack.push({WALL_ALIGN, -1});
                         taskstack.push({TURN_LEFT, -1});
                         taskstack.push({TURN_LEFT, -1});
-                        addon = 7;
                         break;
                     }
                 }
@@ -455,13 +454,13 @@ void loop() {
                     printstr("Left Turn Pushed");
                     taskstack.push({DRIVE_STRAIGHT, 18});
                     taskstack.push({TURN_LEFT, -1});
+                } else if (!currentWalls.front) {
+                    printstr("Straight Pushed");
+                    taskstack.push({DRIVE_STRAIGHT, 18});
                 } else if (!currentWalls.right) {
                     printstr("Right Turn Pushed");
                     taskstack.push({DRIVE_STRAIGHT, 18});
                     taskstack.push({TURN_RIGHT, -1});
-                } else if (!currentWalls.front) {
-                    printstr("Straight Pushed");
-                    taskstack.push({DRIVE_STRAIGHT, 18});
                 } else {
                     printstr("Turning Around Pushed");
                     // taskstack.push({WALL_ALIGN, -1});

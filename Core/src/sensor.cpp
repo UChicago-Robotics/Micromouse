@@ -15,8 +15,8 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RFs = 0;
     this->LFs = 0;
     this->LLs = 0;
-    this->LF_cutoff = 190;
-    this->RF_cutoff = 250; // FOR RECOGNIZING WALL
+    this->LF_cutoff = 200;
+    this->RF_cutoff = 271; // FOR RECOGNIZING WALL
     this->RF_brake = this->RF_cutoff; // FOR BRAKING IN FRONT OF WALL
     this->LF_brake = this->LF_cutoff;
     // FOR AVOIDING WALLS WHEN DRIVING STRAIGHT
@@ -24,8 +24,8 @@ SensorController::SensorController(int L_val, double lambda_val) {
     this->RR_cutoff = 50;
     this->LL_coeff = .004; // weighting of wall dist vs encoder diff
     this->RR_coeff = .004;
-    this->LL_basecut = -94;
-    this->RR_basecut = -46;
+    this->LL_basecut = -76;
+    this->RR_basecut = -47;
 
 
 
