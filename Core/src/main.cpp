@@ -380,6 +380,17 @@ void control() {
 
 int deletedStatus = 0;
 void loop() {
+    if (digitalRead(ONOFF) && digitalRead(BUTTON_1) && digitalRead(BUTTON_2)) {
+        digitalWrite(LEDR, LOW);
+        digitalWrite(LEDG, HIGH);
+        digitalWrite(LEDB, LOW);
+        byte vx, vy;
+        vx = 128;
+        vy = 128;
+        setVxy(&vx,&vy);
+        motor.setSpeed(vx-128,vy-128);
+        return;
+    }
     int currTime = millis();
     BLE.poll();
     sensor.readIMU();
