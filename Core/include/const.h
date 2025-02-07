@@ -3,7 +3,7 @@
 #define CONST_H
 
 const int IR_INPUT_PINS[4] = {A0, A1, A2, A3};
-const int IR_OUTPUT_PINS[4] = {D9, D10, D11, D12};
+const int IR_OUTPUT_PINS[4] = {D9, D1, D12, D13};
 const int MOTOR_PINS[4] = {D2, D3, D4, D5};
 
 #define HIGH 1
@@ -22,14 +22,14 @@ const int MOTOR_PINS[4] = {D2, D3, D4, D5};
 #define RL_ENC A4
 
 // IR pins <POS><ORIENTATION>_IRi
-#define RF_IRi A0
-#define RR_IRi A1
-#define LL_IRi A2
-#define LF_IRi A3
-#define RF_IRo D12
-#define RR_IRo D11
-#define LL_IRo D10
-#define LF_IRo D9
+#define SR_IRi A0
+#define FR_IRi A1
+#define FL_IRi A2
+#define SL_IRi A3
+#define FR_IRo D1
+#define SR_IRo D9
+#define FL_IRo D12
+#define SL_IRo D13
 
 // button input
 #define BUTTON D8
